@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cài đặt — VXChat</title>
+    <link rel="stylesheet" href="settings_ui.css">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #141821;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .vx_settings_ui {
+            width: 100%;
+            height: 100%;
+            max-width: none;
+            max-height: none;
+            border-radius: 0;
+            border: none;
+            box-shadow: none;
+        }
+        .vx_settings_checkbox_row {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        .vx_settings_checkbox_row input[type="checkbox"] {
+            margin-top: 2px;
+            width: 16px;
+            height: 16px;
+            accent-color: #0891b2;
+            cursor: pointer;
+        }
+        .vx_settings_checkbox_label {
+            font-size: 13px;
+            font-weight: 500;
+            color: #f8fafc;
+        }
+        .vx_settings_checkbox_desc {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .vx_settings_btn_danger {
+            margin-top: 16px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #ef444466;
+            background: #ef444422;
+            color: #f87171;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .vx_settings_btn_danger:hover {
+            background: #ef444444;
+            color: #fca5a5;
+        }
+    </style>
+</head>
+<body>
+    <div class="vx_settings_ui">
+        <!-- Header -->
+        <header class="vx_settings_header">
+            <h2 id="settingsTitle">Cài đặt</h2>
+            <button class="vx_settings_icon_button" id="closeButton" title="Đóng (Esc)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </header>
+
+        <!-- Layout -->
+        <div class="vx_settings_layout">
+            <!-- Sidebar Nav -->
+            <nav class="vx_settings_nav">
+                <button class="vx_settings_tab is_active" data-tab="general">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span>Chung</span>
+                </button>
+                <button class="vx_settings_tab" data-tab="messenger">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span>Messenger</span>
+                </button>
+                <div class="vx_settings_divider"></div>
+                <button class="vx_settings_tab" data-tab="updates">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    <span>Cập nhật</span>
+                </button>
+                <button class="vx_settings_tab" data-tab="about">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <span>Giới thiệu</span>
+                </button>
+                <button class="vx_settings_tab" data-tab="support">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                    </svg>
+                    <span>Ủng hộ tác giả</span>
+                </button>
+            </nav>
+
+            <!-- Body -->
+            <main class="vx_settings_body">
+                <!-- Panel 1: General (Theme G1 -> Language G2) -->
+                <div class="vx_settings_panel" id="panel-general">
+                    <div class="vx_settings_stack">
+                        <div>
+                            <h4 class="vx_settings_heading" data-vx-settings-section="G1">Giao diện & màu sắc</h4>
+                            <div class="vx_settings_themes">
+                                <label class="vx_settings_theme is_active" data-theme-val="dark">
+                                    <input type="radio" name="theme" value="dark" checked>
+                                    <span>Tối (Dark)</span>
+                                </label>
+                                <label class="vx_settings_theme" data-theme-val="system">
+                                    <input type="radio" name="theme" value="system">
+                                    <span>Theo hệ thống</span>
+                                </label>
+                                <label class="vx_settings_theme" data-theme-val="light">
+                                    <input type="radio" name="theme" value="light">
+                                    <span>Sáng (Light)</span>
+                                </label>
+                                <label class="vx_settings_theme" data-theme-val="oled">
+                                    <input type="radio" name="theme" value="oled">
+                                    <span>Đen tuyệt đối (OLED)</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="vx_settings_section_divided">
+                            <h4 class="vx_settings_heading" data-vx-settings-section="G2">Ngôn ngữ</h4>
+                            <div class="vx_settings_languages">
+                                <label>
+                                    <input type="radio" name="language" value="vi" checked>
+                                    <span>Tiếng Việt</span>
+                                </label>
+                                <label>
+                                    <input type="radio" name="language" value="en">
+                                    <span>English</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 2: Messenger Capabilities -->
+                <div class="vx_settings_panel" id="panel-messenger" style="display: none;">
+                    <div class="vx_settings_stack">
+                        <div>
+                            <h4 class="vx_settings_heading">Tùy chọn Vận hành & Nền tảng</h4>
+                            <label class="vx_settings_checkbox_row">
+                                <input type="checkbox" id="chk_launch_at_login" checked>
+                                <div>
+                                    <div class="vx_settings_checkbox_label">Khởi động cùng macOS (Launch at Login)</div>
+                                    <div class="vx_settings_checkbox_desc">Tự động khởi chạy âm thầm khi bạn đăng nhập vào máy tính.</div>
+                                </div>
+                            </label>
+                            <label class="vx_settings_checkbox_row">
+                                <input type="checkbox" id="chk_close_to_hide" checked>
+                                <div>
+                                    <div class="vx_settings_checkbox_label">Tiếp tục chạy ngầm khi đóng cửa sổ (Close-to-Hide)</div>
+                                    <div class="vx_settings_checkbox_desc">Bấm nút đỏ hoặc ⌘W sẽ ẩn cửa sổ xuống Dock để nhận tin nhắn liên tục.</div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="vx_settings_section_divided">
+                            <h4 class="vx_settings_heading">Tùy biến Giao diện & Hiển thị</h4>
+                            <label class="vx_settings_checkbox_row">
+                                <input type="checkbox" id="chk_clean_header" checked>
+                                <div>
+                                    <div class="vx_settings_checkbox_label">Tự động ẩn thanh TopNav Facebook toàn cục</div>
+                                    <div class="vx_settings_checkbox_desc">Loại bỏ thanh điều hướng Facebook và mở rộng giao diện Messenger 100vh.</div>
+                                </div>
+                            </label>
+
+                        </div>
+
+                        <div class="vx_settings_section_divided">
+                            <h4 class="vx_settings_heading">Thông báo & Huy hiệu</h4>
+                            <p class="vx_settings_checkbox_desc" id="notificationStatus" role="status">Đang kiểm tra quyền thông báo macOS…</p>
+                            <div class="vx_settings_footer_actions">
+                                <button class="vx_settings_reset" type="button" id="btnNotificationStatus">Kiểm tra quyền</button>
+                                <button class="vx_settings_reset" type="button" id="btnTestNotification">Gửi thông báo thử</button>
+                            </div>
+                            <p class="vx_settings_checkbox_desc" id="notificationTestResult" role="status"></p>
+                            <label class="vx_settings_checkbox_row">
+                                <input type="checkbox" id="chk_sound_enabled" checked>
+                                <div>
+                                    <div class="vx_settings_checkbox_label">Bật âm thanh khi có tin nhắn mới</div>
+                                    <div class="vx_settings_checkbox_desc">Phát chuông thông báo native của macOS.</div>
+                                </div>
+                            </label>
+                            <label class="vx_settings_checkbox_row">
+                                <input type="checkbox" id="chk_badge_enabled" checked>
+                                <div>
+                                    <div class="vx_settings_checkbox_label">Hiển thị huy hiệu hội thoại chưa đọc trên Dock</div>
+                                    <div class="vx_settings_checkbox_desc">Đếm hội thoại chưa đọc trong danh sách Messenger đang tải; không phải tổng số tin nhắn.</div>
+                                </div>
+                            </label>
+
+                            <button class="vx_settings_btn_danger" id="btnLogout">Đăng xuất tài khoản & Xóa dữ liệu phiên</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 3: Updates -->
+                <div class="vx_settings_panel" id="panel-updates" style="display: none;">
+                    <div class="vx_settings_stack">
+                        <div class="vx_settings_banner">
+                            <div>
+                                <h3>
+                                    <span>VXChat</span>
+                                    <span class="vx_settings_version">v1.0.0</span>
+                                </h3>
+                                <p>Ứng dụng đang hoạt động với phiên bản mới nhất.</p>
+                            </div>
+                            <button class="vx_settings_primary" id="btnCheckUpdates">Kiểm tra cập nhật</button>
+                        </div>
+
+                        <div class="vx_settings_card" style="margin-top: 16px;">
+                            <h4 class="vx_settings_heading">Kênh phát hành</h4>
+                            <p>Các bản cập nhật được phát hành chính thức qua GitHub Releases. Ứng dụng tự động kiểm tra phiên bản mới mỗi khi khởi động.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 4: About -->
+                <div class="vx_settings_panel" id="panel-about" style="display: none;">
+                    <div class="vx_settings_stack">
+                        <div class="vx_settings_banner vx_settings_identity">
+                            <div class="vx_settings_app_icon">
+                                <img src="app_icon.png" alt="VXChat">
+                            </div>
+                            <div class="vx_settings_identity_text">
+                                <div class="vx_settings_name">
+                                    <h3>VXChat</h3>
+                                    <span class="vx_settings_version">v1.0.0</span>
+                                </div>
+                                <div class="vx_settings_author">
+                                    <span>Tác giả: <strong>Bùi Việt Linh</strong></span>
+                                    <span>•</span>
+                                    <a href="#" id="linkGithub">github.com/linhbv94/VXChat</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="vx_settings_card">
+                            <h4 class="vx_settings_heading">Định vị & Công nghệ</h4>
+                            <p>Trình nhắn tin Facebook Messenger native siêu nhẹ dành riêng cho macOS, thuộc hệ sinh thái VXUtilities. Xây dựng hoàn toàn bằng <strong>Swift + AppKit + WebKit</strong>, không sử dụng Electron, bảo vệ 100% sự riêng tư và tiết kiệm RAM tối đa.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel 5: Support Author -->
+                <div class="vx_settings_panel" id="panel-support" style="display: none;">
+                    <div class="vx_settings_stack">
+                        <div class="vx_settings_support_banner">
+                            <div class="vx_settings_coffee">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+                                    <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+                                    <line x1="6" y1="1" x2="6" y2="4"></line>
+                                    <line x1="10" y1="1" x2="10" y2="4"></line>
+                                    <line x1="14" y1="1" x2="14" y2="4"></line>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3>Ủng hộ tác giả</h3>
+                                <p>Nếu VXChat giúp trải nghiệm nhắn tin của bạn mượt mà và nhẹ nhàng hơn, hãy gửi tặng tác giả một ly cà phê nhé!</p>
+                            </div>
+                        </div>
+
+                        <div class="vx_settings_qr_card">
+                            <div class="vx_settings_qr_frame">
+                                <img src="qr.png" alt="Mã QR Ủng hộ">
+                                <strong>BÙI VIỆT LINH</strong>
+                            </div>
+                            <p>Mọi sự ủng hộ đều là nguồn động lực to lớn để duy trì và phát triển toàn bộ hệ sinh thái ứng dụng VXUtilities hoàn toàn miễn phí.</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="vx_settings_footer">
+            <button class="vx_settings_reset" id="btnResetDefaults">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                <span>Khôi phục mặc định</span>
+            </button>
+            <button class="vx_settings_primary" id="btnDone">Hoàn tất</button>
+        </footer>
+    </div>
+
+    <script>
+        (function() {
+            var currentPrefs = {};
+
+            function postBridge(action, data) {
+                try {
+                    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.settingsBridge) {
+                        window.webkit.messageHandlers.settingsBridge.postMessage({
+                            action: action,
+                            data: data || {}
+                        });
+                    }
+                } catch(e) {
+                    console.error('postBridge error:', e);
+                }
+            }
+
+            // Tab switching
+            var tabs = document.querySelectorAll('.vx_settings_tab');
+            var panels = document.querySelectorAll('.vx_settings_panel');
+
+            tabs.forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    var targetTab = this.getAttribute('data-tab');
+                    tabs.forEach(function(t) { t.classList.remove('is_active'); });
+                    this.classList.add('is_active');
+
+                    panels.forEach(function(p) {
+                        p.style.display = (p.id === 'panel-' + targetTab) ? 'block' : 'none';
+                    });
+                });
+            });
+
+            // Theme selection
+            var themeCards = document.querySelectorAll('.vx_settings_theme');
+            themeCards.forEach(function(card) {
+                card.addEventListener('click', function() {
+                    themeCards.forEach(function(c) { c.classList.remove('is_active'); });
+                    this.classList.add('is_active');
+                    var val = this.getAttribute('data-theme-val');
+                    currentPrefs.theme = val;
+                    syncThemeClass(val);
+                    savePreferences();
+                });
+            });
+
+            function syncThemeClass(theme) {
+                if (theme === 'light') {
+                    document.documentElement.className = 'light';
+                    document.documentElement.setAttribute('data-theme', 'light');
+                } else if (theme === 'oled') {
+                    document.documentElement.className = 'dark';
+                    document.documentElement.setAttribute('data-theme', 'oled');
+                } else {
+                    document.documentElement.className = 'dark';
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                }
+            }
+
+            // Language selection
+            var langRadios = document.querySelectorAll('input[name="language"]');
+            langRadios.forEach(function(r) {
+                r.addEventListener('change', function() {
+                    currentPrefs.language = this.value;
+                    renderNotificationStatus();
+                    savePreferences();
+                });
+            });
+
+            // Checkbox changes
+            var checkboxes = [
+                { id: 'chk_launch_at_login', key: 'launch_at_login' },
+                { id: 'chk_close_to_hide', key: 'close_to_hide' },
+                { id: 'chk_clean_header', key: 'auto_clean_header' },
+                { id: 'chk_sound_enabled', key: 'sound_enabled' },
+                { id: 'chk_badge_enabled', key: 'badge_enabled' }
+            ];
+
+            checkboxes.forEach(function(item) {
+                var el = document.getElementById(item.id);
+                if (el) {
+                    el.addEventListener('change', function() {
+                        currentPrefs[item.key] = this.checked;
+                        savePreferences();
+                    });
+                }
+            });
+
+            function savePreferences() {
+                postBridge('save', currentPrefs);
+            }
+
+            // Window functions called from Swift
+            window.__setPreferences = function(prefs) {
+                currentPrefs = prefs || {};
+
+                // Theme
+                var theme = prefs.theme || 'dark';
+                themeCards.forEach(function(c) {
+                    var val = c.getAttribute('data-theme-val');
+                    if (val === theme) {
+                        c.classList.add('is_active');
+                        c.querySelector('input').checked = true;
+                    } else {
+                        c.classList.remove('is_active');
+                    }
+                });
+                syncThemeClass(theme);
+
+                // Language
+                var lang = prefs.language || 'vi';
+                langRadios.forEach(function(r) {
+                    r.checked = (r.value === lang);
+                });
+
+                if (notificationStatus) renderNotificationStatus();
+                // Checkboxes
+                checkboxes.forEach(function(item) {
+                    var el = document.getElementById(item.id);
+                    if (el && typeof currentPrefs[item.key] !== 'undefined') {
+                        el.checked = !!currentPrefs[item.key];
+                    }
+                });
+            };
+
+            var notificationStatus = null;
+            function renderNotificationStatus() {
+                var en = currentPrefs.language === 'en';
+                var status = notificationStatus || {};
+                var allowed = status.authorization === 'authorized' || status.authorization === 'provisional';
+                document.getElementById('notificationStatus').textContent = allowed
+                    ? (en ? 'macOS notifications are allowed.' : 'macOS đã cho phép thông báo.') + (status.alerts === 'disabled' ? (en ? ' Banners are disabled in System Settings.' : ' Banner đang tắt trong System Settings.') : '')
+                    : (en ? 'Notifications are off. Open System Settings → Notifications → VXChat → Allow Notifications.' : 'Thông báo đang tắt. Mở System Settings → Notifications → VXChat → Allow Notifications.');
+                document.getElementById('btnNotificationStatus').textContent = en ? 'Check permission' : 'Kiểm tra quyền';
+                document.getElementById('btnTestNotification').textContent = en ? 'Send test notification' : 'Gửi thông báo thử';
+                document.getElementById('btnTestNotification').disabled = !allowed;
+            }
+            window.__setNotificationStatus = function(status) { notificationStatus = status; renderNotificationStatus(); };
+            window.__setNotificationTestResult = function(status) {
+                var en = currentPrefs.language === 'en';
+                document.getElementById('btnTestNotification').disabled = false;
+                document.getElementById('notificationTestResult').textContent = status.result === 'scheduled'
+                    ? (en ? 'Sent to macOS. Check Notification Center; Focus or screen sharing can hide banners.' : 'Đã gửi tới macOS. Kiểm tra Notification Center; Focus hoặc chia sẻ màn hình có thể ẩn banner.')
+                    : (en ? 'Could not send. Check notification permission again.' : 'Chưa gửi được. Hãy kiểm tra lại quyền thông báo.');
+            };
+            document.getElementById('btnNotificationStatus').addEventListener('click', function() { postBridge('notification_status'); });
+            document.getElementById('btnTestNotification').addEventListener('click', function() {
+                this.disabled = true;
+                postBridge('test_notification');
+            });
+
+            // Buttons
+            document.getElementById('closeButton').addEventListener('click', function() {
+                postBridge('close');
+            });
+            document.getElementById('btnDone').addEventListener('click', function() {
+                postBridge('close');
+            });
+            document.getElementById('btnResetDefaults').addEventListener('click', function() {
+                postBridge('reset');
+            });
+            document.getElementById('btnLogout').addEventListener('click', function() {
+                postBridge('logout');
+            });
+            document.getElementById('btnCheckUpdates').addEventListener('click', function() {
+                postBridge('open_url', { url: 'https://github.com/linhbv94/VXChat/releases' });
+            });
+            document.getElementById('linkGithub').addEventListener('click', function(e) {
+                e.preventDefault();
+                postBridge('open_url', { url: 'https://github.com/linhbv94/VXChat' });
+            });
+
+            // Keyboard shortcut Escape to close
+            window.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    postBridge('close');
+                }
+            });
+
+            // Request initial values from Swift
+            postBridge('load');
+        })();
+    </script>
+</body>
+</html>

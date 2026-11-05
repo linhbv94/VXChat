@@ -1,0 +1,56 @@
+{
+  "registry_version": "1.2.0",
+  "target_destination": "https://www.facebook.com/messages/t",
+  "selectors": {
+    "global_top_navigation": {
+      "primary": "header[role=\"banner\"], div[role=\"banner\"]",
+      "fallbacks": [
+        "div[data-pagelet=\"TopNav\"]",
+        "#ssrb_top_nav_start + div"
+      ]
+    },
+    "outgoing_chat_bubbles": {
+      "primary": "div[data-testid=\"outgoing_message\"] div[role=\"none\"]:not([style*=\"linear-gradient\"]):not([style*=\"background-image\"])",
+      "fallbacks": [
+        "div[dir=\"auto\"][style*=\"background-color: rgb(0, 132, 255)\"]",
+        "div[dir=\"auto\"][style*=\"background-color: var(--accent)\"]"
+      ],
+      "target_color": "#0084FF",
+      "enabled": false,
+      "note": "Giữ theme bong bóng theo feedback hiện hành; không dùng selector legacy để ép màu."
+    },
+    "messenger_shell": {
+      "primary": "[data-vx-messenger-shell]",
+      "note": "messenger_layout.js nhận diện common ancestor của role=main và navigation có thread links; bỏ header-height ở nested theme roots."
+    },
+    "message_scroll_container": {
+      "primary": "[role=\"main\"] [role=\"log\"] [data-vx-message-scroll]",
+      "note": "Marker trên div overflow-y auto/scroll; neutral track + opaque gutter18px, không áp scrollbar toàn document."
+    },
+    "notification_thread_rows": {
+      "primary": "[role=\"navigation\"] [role=\"row\"] a[href*=\"/messages/\"]",
+      "note": "Chỉ đường dẫn messages/(e2ee/)?t/id cùng origin; tên/preview từ span dir=auto; unread marker EN/VI; baseline và bỏ own/remount/history."
+    },
+    "notification_open_messages": {
+      "primary": "[role=\"main\"] [role=\"log\"] [id^=\"mid.\"][aria-label]",
+      "note": "Stable message IDs; baseline/tail/nhãn thời gian gần hiện tại; chưa có đảm bảo cho mọi locale hoặc dữ liệu chưa được Facebook chuyển tới DOM."
+    }
+  },
+  "url_rules": {
+    "allowed_hosts": [
+      "www.facebook.com",
+      "web.facebook.com",
+      "facebook.com",
+      "m.facebook.com"
+    ],
+    "disallowed_feed_patterns": [
+      "^https://(www|web)\\.facebook\\.com/?$",
+      "^https://(www|web)\\.facebook\\.com/\\?.*",
+      "^https://(www|web)\\.facebook\\.com/home\\.php.*",
+      "^https://(www|web)\\.facebook\\.com/watch.*",
+      "^https://(www|web)\\.facebook\\.com/marketplace.*"
+    ],
+    "loop_breaker_max_count": 3,
+    "loop_breaker_window_seconds": 5
+  }
+}

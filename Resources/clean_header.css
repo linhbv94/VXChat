@@ -1,0 +1,50 @@
+/* Only the Messenger route is cropped; login/checkpoint pages keep native scrolling. */
+html[data-vx-messenger-clean] {
+    --header-height: 0px !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+}
+html[data-vx-messenger-clean] body {
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100dvh !important;
+}
+html[data-vx-messenger-clean]::-webkit-scrollbar,
+html[data-vx-messenger-clean] body::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+html[data-vx-messenger-clean] :is(header[role="banner"], div[role="banner"], [data-pagelet="TopNav"]) {
+    display: none !important;
+}
+/* Comet caps the common sidebar/main shell at calc(100vh - 56px).
+   Setting height on role=main alone still inherits that capped parent. */
+html[data-vx-messenger-clean] [data-vx-messenger-frame],
+html[data-vx-messenger-clean] [data-vx-messenger-shell] {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    min-height: 0 !important;
+    top: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    box-sizing: border-box !important;
+}
+html[data-vx-messenger-clean] [role="main"] {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    top: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+/* Facebook redeclares --header-height on nested theme roots. A value on html
+   alone is shadowed there, so nested calc(100vh - var(--header-height)) stays
+   56px short. Override only this variable throughout the cropped document. */
+html[data-vx-messenger-clean] body,
+html[data-vx-messenger-clean] body * {
+    --header-height: 0px !important;
+}

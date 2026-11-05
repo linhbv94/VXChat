@@ -1,0 +1,12 @@
+# Git ignore for VXChat
+.DS_Store
+.build/
+Packages/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+build/
+dist/
+
+# Symlinked private documentation
+docs
