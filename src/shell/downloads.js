@@ -1,11 +1,12 @@
 'use strict';
 let language = 'vi'; let records = [];
 const dict = {
-  vi: { title: 'Tệp đã tải', clear: 'Xóa danh sách đã xong', close: 'Đóng', empty: 'Chưa có tệp tải trong phiên này.', downloading: 'Đang tải', completed: 'Đã tải', cancelled: 'Đã hủy', failed: 'Tải thất bại', open: 'Mở', reveal: 'Hiện trong thư mục', cancel: 'Hủy', error: 'Không thực hiện được thao tác; tệp có thể đã bị di chuyển hoặc xóa.', blocked: 'Dùng “Hiện trong thư mục” để kiểm tra và mở tệp này.' },
-  en: { title: 'Downloads', clear: 'Clear finished items', close: 'Close', empty: 'No downloads in this session.', downloading: 'Downloading', completed: 'Completed', cancelled: 'Cancelled', failed: 'Failed', open: 'Open', reveal: 'Show in folder', cancel: 'Cancel', error: 'Operation failed; the file may have moved or been deleted.', blocked: 'Use “Show in folder” to review and open this file.' }
+  vi: { title: 'Tệp đã tải', all:'Xem tất cả', clear: 'Xóa danh sách đã xong', close: 'Đóng', empty: 'Chưa có tệp tải trong phiên này.', downloading: 'Đang tải', completed: 'Đã tải', cancelled: 'Đã hủy', failed: 'Tải thất bại', open: 'Mở file', reveal: 'Hiện trong thư mục', cancel: 'Hủy', error: 'Không thực hiện được thao tác; tệp có thể đã bị di chuyển hoặc xóa.', blocked: 'Dùng “Hiện trong thư mục” để kiểm tra và mở tệp này.' },
+  en: { title: 'Downloads', all:'View all', clear: 'Clear finished items', close: 'Close', empty: 'No downloads in this session.', downloading: 'Downloading', completed: 'Completed', cancelled: 'Cancelled', failed: 'Failed', open: 'Open file', reveal: 'Show in folder', cancel: 'Cancel', error: 'Operation failed; the file may have moved or been deleted.', blocked: 'Use “Show in folder” to review and open this file.' }
 };
 function render() {
   const d = dict[language]; for (const id of ['title', 'clear', 'close']) document.getElementById(id).textContent = d[id];
+  if(document.getElementById('all'))document.getElementById('all').textContent=d.all;
   const list = document.getElementById('list');
   // Preserve keyboard focus during frequent download progress updates.
   const focused = document.activeElement; const key = focused?.dataset.download; const action = focused?.dataset.action;
@@ -40,6 +41,7 @@ function applyPreferences(value) {
 }
 document.getElementById('clear').onclick = () => command({ action: 'download_clear' });
 document.getElementById('close').onclick = () => command({ action: 'window_close' });
+if(document.getElementById('all'))document.getElementById('all').onclick=()=>command({action:'downloads'});
 window.addEventListener('keydown', event => { if (event.key === 'Escape') void command({ action: 'window_close' }); });
 window.vxchat.downloads(value => { records = value; render(); }); window.vxchat.preferences(applyPreferences);
 void command({ action: 'preferences_get' }); void command({ action: 'download_list' });

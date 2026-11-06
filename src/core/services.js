@@ -30,6 +30,8 @@ function navigationKind(serviceID, value) {
   const u = httpsURL(value);
   if (!u) return 'blocked';
   const definition = service(serviceID);
+  // Identity is a sibling of the client; classify before the zalo.me match.
+  if (serviceID === 'zalo' && u.hostname === 'id.zalo.me' && !u.port) return 'auth';
   if (definition.hosts.some(h => hostMatches(u.hostname, h))) return 'service';
   if (AUTH_HOSTS.includes(u.hostname)) return 'auth';
   return 'external';

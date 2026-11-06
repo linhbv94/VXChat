@@ -80,7 +80,9 @@ jobs:
           set -euo pipefail
           version=$(node -p 'require("./package.json").version')
           if ! gh release view "v${version}" >/dev/null 2>&1; then
-            gh release create "v${version}" --draft --target "$GITHUB_SHA" --title "VXChat ${version}" --notes-file release_notes/1_0_0.md
+            notes="release_notes/${version//./_}.md"
+            test -f "$notes"
+            gh release create "v${version}" --draft --target "$GITHUB_SHA" --title "VXChat ${version}" --notes-file "$notes"
           fi
           test "$(gh release view "v${version}" --json isDraft --jq .isDraft)" = true
           shopt -s nullglob

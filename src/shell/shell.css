@@ -438,6 +438,7 @@ html[data-platform="win32"] #titlebar {padding-left:12px;padding-right:max(150px
 html[data-platform="linux"] #titlebar {padding-left:12px;}
 .nav-bar {-webkit-app-region:no-drag;}
 .page-location {display:block;flex:0 1 220px;max-width:22vw;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font-size:11px;color:var(--fg-muted);padding:0 8px;user-select:text;}
+.page-location:empty {display:none;}
 
 .sr-only {
   position: absolute;
@@ -450,6 +451,24 @@ html[data-platform="linux"] #titlebar {padding-left:12px;}
   white-space: nowrap;
   border: 0;
 }
+
+.service-group {display:flex;align-items:center;gap:2px;border-right:1px solid var(--border);padding-right:5px;margin-right:2px;}
+.service-group.is-dragging {opacity:.45;}
+.service-group.drag-over {box-shadow:inset 2px 0 var(--accent);}
+.service-launch {font:inherit;color:var(--fg);}
+.service-launch.is-unopened {opacity:.48;}
+.service-launch.is-unopened:hover,.service-launch.is-unopened:focus-visible {opacity:1;}
+.service-group .tab:not(.is-unopened) {background:var(--tab-active-bg);border-color:var(--border-subtle);}
+.service-plus {width:24px;height:26px;border:0;border-radius:4px;background:transparent;color:var(--fg-muted);font-size:17px;cursor:pointer;flex:none;}
+.service-plus:hover {background:var(--btn-hover);color:var(--fg);}
+.service-plus.is-placeholder {opacity:.4;cursor:not-allowed;}
+.service-plus:focus-visible,.service-launch:focus-visible,#manage-services:focus-visible {outline:2px solid var(--accent);outline-offset:-2px;}
+#manage-services {width:28px;height:28px;border:0;border-radius:4px;background:transparent;color:var(--fg-muted);font-size:18px;cursor:pointer;flex:none;}
+#manage-services:hover {background:var(--btn-hover);}
+#service-manager {padding:8px 12px;border-bottom:1px solid var(--border);background:var(--nav-bg);color:var(--fg-secondary);}
+#service-manager[hidden] {display:none;}
+#service-manager p {margin:0 0 6px;font-size:11px;}
+#service-manager label {display:inline-flex;align-items:center;gap:4px;margin-right:16px;cursor:pointer;}
 
 #downloads-btn.has-completed {
   color: var(--accent);

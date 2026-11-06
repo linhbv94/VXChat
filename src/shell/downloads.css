@@ -9,3 +9,9 @@ button:focus-visible {outline:2px solid var(--accent);}
 .download button {margin-right:8px;}
 progress {width:100%;accent-color:var(--accent);}
 #error {color:var(--danger);min-height:18px;}
+.downloads-panel {padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:10px;min-height:100vh;}
+.downloads-panel h1 {font-size:14px;}
+.downloads-panel .download-header {padding-bottom:8px;gap:6px;}
+.downloads-panel button {font-size:11px;padding:5px 8px;}
+.downloads-panel .download {padding:10px;}
+.downloads-panel #error:empty {display:none;}

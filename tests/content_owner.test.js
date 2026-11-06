@@ -30,6 +30,27 @@ function fixture(serviceID = 'slack', overrides = {}) {
   return { owner, wc: owner.view.webContents, registry, children, updates: () => updates };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
+test('Zalo auth stays authenticating across a company callback and hands only the client back to primary', async () => {
+  const { owner, wc } = fixture('zalo');
+  const opened = []; owner.electron.shell.openExternal = async value => opened.push(value);
+  wc.url = 'https://id.zalo.me/account?continue=https%3A%2F%2Fchat.zalo.me%2F'; wc.emit('did-finish-load');
+  assert.equal(owner.workflow.phase,'authenticating');
+  let prevented = false;
+  wc.emit('will-redirect',{preventDefault(){prevented=true;}},'https://callback.example.test/auth/complete');
+  assert.equal(prevented,false); assert.deepEqual(opened,[]);
+  const child = new Child('https://id.zalo.me/account'); wc.emit('did-create-window',child,{url:'https://id.zalo.me/account'});
+  child.webContents.emit('did-finish-load'); await tick();
+  assert.equal(wc.getURL().startsWith('https://id.zalo.me/'),true); assert.equal(child.isDestroyed(),false);
+  child.webContents.url='https://chat.zalo.me/'; child.webContents.emit('did-finish-load'); await tick();
+  assert.equal(wc.url,'https://chat.zalo.me/'); assert.equal(owner.workflow.phase,'client_ready');
+  assert.equal(child.isDestroyed(),true); assert.deepEqual(opened,[]); owner.dispose();
+});
+test('an unrelated Zalo popup must not replace an active chat or masquerade as a completed login', async () => {
+  const { owner, wc } = fixture('zalo'); wc.url='https://chat.zalo.me/'; wc.emit('did-finish-load');
+  const child = new Child('https://chat.zalo.me/'); wc.emit('did-create-window',child,{url:'https://chat.zalo.me/'});
+  child.webContents.emit('did-finish-load'); await tick();
+  assert.equal(child.isDestroyed(),false); assert.equal(wc.url,'https://chat.zalo.me/'); owner.dispose();
+});
 test('owner retains blank popup/opener and exposes ID actions without leaking callback URLs', () => {
   const { owner, wc, registry } = fixture(); wc.url = 'https://team.slack.com/sso';
   const decision = wc.open({ url: 'about:blank' }); assert.equal(decision.action, 'allow'); assert.equal(decision.overrideBrowserWindowOptions.webPreferences.nodeIntegration, false); assert.equal(decision.overrideBrowserWindowOptions.webPreferences.preload, undefined);

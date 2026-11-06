@@ -1,18 +1,21 @@
-/* Layout only. Main process inserts this solely on confirmed /messages routes.
-   No color, theme, bubble, scrollbar, global height or subtree variable overrides. */
-header[role="banner"], div[role="banner"], [data-pagelet="TopNav"] {
+/* Confirmed Messenger only. Nested theme roots redeclare this layout variable.
+   Preserve the website's flex, position and height rules; no theme changes. */
+html[data-vx-messenger-clean],
+html[data-vx-messenger-clean] body,
+html[data-vx-messenger-clean] body * {
+  --header-height: 0px !important;
+}
+html[data-vx-messenger-clean] :is(header[role="banner"], div[role="banner"], [data-pagelet="TopNav"]) {
   display: none !important;
 }
-/* Only the measured common frame around thread list + conversation is resized.
-   Keep website-owned scroll/composer layout and all presentation variables. */
-[data-vx-messenger-frame] {
-  position: fixed !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100dvh !important;
-  max-height: 100dvh !important;
-  min-height: 0 !important;
-  margin-top: 0 !important;
-  padding-top: 0 !important;
+/* Only the empty document rail is hidden; inner chat/list scrollers remain. */
+html[data-vx-messenger-clean], html[data-vx-messenger-clean] body {
+  overflow: hidden !important;
+  scrollbar-width: none !important;
 }
-[data-vx-messenger-shell] { height: 100% !important; min-height: 0 !important; }
+html[data-vx-messenger-clean]::-webkit-scrollbar,
+html[data-vx-messenger-clean] body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}

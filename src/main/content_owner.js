@@ -198,7 +198,7 @@ class ContentOwner {
         if (popup.timer && url && url !== 'about:blank') { clearTimeout(popup.timer); popup.timer = null; }
         this.changed();
         if (this.instance.service_id === 'messenger') this.syncScope(this.serviceState.entry(this.instance.id).setup_confirmed && !popup.authFlow,childContents,popup.purpose);
-        if ((this.instance.service_id !== 'messenger' || this.serviceState.entry(this.instance.id).setup_confirmed) && canHandoff(this.instance.service_id, url, this.view.webContents.getURL())) void this.handoff(popup, url);
+        if ((this.instance.service_id !== 'messenger' || this.serviceState.entry(this.instance.id).setup_confirmed) && (this.instance.service_id !== 'zalo' || popup.authSeen) && canHandoff(this.instance.service_id, url, this.view.webContents.getURL())) void this.handoff(popup, url);
       };
       popup.cleanups.push(this.listen(childContents, 'did-finish-load', () => committed(false)));
       popup.cleanups.push(this.listen(childContents, 'did-navigate-in-page', (_e, _url, mainFrame) => { if (mainFrame) committed(true); }));

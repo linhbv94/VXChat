@@ -8,11 +8,23 @@ class TabEngine {
   constructor({ store, createOwner, onChange = () => {} }) {
     this.store = store; this.createOwner = createOwner; this.onChange = onChange;
     this.state = validateState(store.load()); this.owners = new Map(); this.stopped = false;
+    // Migrate the old generated AI label without replacing tabs or sessions.
+    const tabs = this.state.tabs.map(tab => ({ ...tab }));
+    for (const instance of this.state.instances.filter(i => service(i.service_id).multiTab)) {
+      const label = service(instance.service_id).label;
+      const used = new Set(tabs.filter(t => t.instance_id === instance.id && t.label !== `${label} 1`).map(t => t.label));
+      for (const tab of tabs.filter(t => t.instance_id === instance.id && t.label === `${label} 1`)) {
+        let next = label, ordinal = 2;
+        while (used.has(next)) next = `${label} ${ordinal++}`;
+        tab.label = next; used.add(next); this.labelsMigrated = true;
+      }
+    }
+    this.state = { ...this.state, tabs };
     this.queue = Promise.resolve();
   }
   start() {
     try {
-      if (this.store.needsInitialSave) this.store.save(this.state);
+      if (this.store.needsInitialSave || this.labelsMigrated) this.store.save(this.state);
       for (const tab of this.state.tabs) this.owners.set(tab.id, this.allocate(tab));
       for (const owner of this.owners.values()) owner.load();
       this.present();
@@ -46,9 +58,9 @@ class TabEngine {
       const existing = this.state.tabs.find(t => t.instance_id === instance.id);
       if (existing && !definition.multiTab) { this.selectNow(existing.id); return existing.id; }
       const used = new Set(this.state.tabs.map(t => t.label));
-      let ordinal = 1;
-      while (used.has(`${definition.label} ${ordinal}`)) ordinal++;
-      const tab = { id: randomUUID(), instance_id: instance.id, label: definition.multiTab ? `${definition.label} ${ordinal}` : definition.label };
+      let label = definition.label, ordinal = 2;
+      while (definition.multiTab && used.has(label)) label = `${definition.label} ${ordinal++}`;
+      const tab = { id: randomUUID(), instance_id: instance.id, label };
       const owner = this.allocate(tab);
       try { this.commit({ ...this.state, tabs: [...this.state.tabs, tab], active_tab_id: tab.id }); }
       catch (error) { owner.dispose(); throw error; }

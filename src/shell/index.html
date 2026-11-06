@@ -25,14 +25,6 @@
           <path fill="currentColor" d="M8 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1h2.293L8 1V.5A.5.5 0 0 1 8 0z"/>
         </svg>
       </button>
-      <button id="theme-btn" class="nav-btn" type="button" aria-label="Đổi giao diện / Theme" title="Giao diện / Theme">
-        <svg viewBox="0 0 16 16" width="13" height="13">
-          <path fill="currentColor" d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 13V2a6 6 0 1 1 0 12z"/>
-        </svg>
-      </button>
-      <button id="lang-btn" class="nav-btn nav-lang-btn" type="button" aria-label="Đổi ngôn ngữ / Switch language" title="Ngôn ngữ / Language">
-        <span id="lang-badge">VI</span>
-      </button>
       <button id="settings-btn" data-vx-titlebar-settings type="button" aria-label="Cài đặt / Settings" title="Cài đặt / Settings (Cmd/Ctrl+,)">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9.2 3-.7 2.1-1.6.9-2.2-.4-2 3.5 1.5 1.7v1.9l-1.5 1.7 2 3.5 2.2-.4 1.6.9.7 2.1h4l.7-2.1 1.6-.9 2.2.4 2-3.5-1.5-1.7v-1.9l1.5-1.7-2-3.5-2.2.4-1.6-.9-.7-2.1z"/><circle cx="11.2" cy="11.8" r="3"/></svg>
       </button>
@@ -41,28 +33,11 @@
   <nav aria-label="Thanh tab / Tabs" class="nav-bar">
     <div id="tabs-wrapper" class="tabs-wrapper">
       <div id="tabs" class="tabs-list" role="tablist"></div>
-      <div id="add-wrapper" class="add-wrapper">
-        <button id="add-btn" class="add-btn" type="button" aria-label="Thêm tab / Add tab" title="Thêm tab / Add tab">
-          <svg class="icon-plus" viewBox="0 0 16 16" width="13" height="13">
-            <path fill="currentColor" d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z"/>
-          </svg>
-        </button>
-        <select id="service" class="service-select" aria-label="Chọn dịch vụ để thêm / Select service to add"></select>
-      </div>
     </div>
-
-    <div id="empty-state" class="empty-state">
-      <span class="empty-text">Chưa mở tab nào / No tabs open</span>
-      <div class="empty-buttons">
-        <button class="empty-btn" type="button" data-service="messenger">+ Messenger</button>
-        <button class="empty-btn" type="button" data-service="zalo">+ Zalo</button>
-        <button class="empty-btn" type="button" data-service="slack">+ Slack</button>
-        <button class="empty-btn" type="button" data-service="chatgpt">+ ChatGPT</button>
-      </div>
-    </div>
-
     <span id="page-location" class="page-location" aria-label="Trang hiện tại"></span>
+    <button id="manage-services" class="nav-btn" type="button" aria-expanded="false" aria-controls="service-manager">⋯</button>
   </nav>
+  <div id="service-manager" hidden></div>
   <div id="workflow" class="workflow" hidden></div></header>
   <script src="tab_order.js"></script>
   <script src="download_feedback.js"></script>

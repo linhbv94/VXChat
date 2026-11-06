@@ -62,8 +62,7 @@ try:
  run(['security','unlock-keychain','-p',password,str(chain)])
  run(['security','import',str(work/'identity.p12'),'-k',str(chain),'-P',password,'-T','/usr/bin/codesign'])
  run(['security','set-key-partition-list','-S','apple-tool:,apple:,codesign:','-s','-k',password,str(chain)])
- current=shlex.split(run(['security','list-keychains','-d','user']).decode())
- run(['security','list-keychains','-d','user','-s',*dict.fromkeys([*current,str(chain)])])
+ run(['security','list-keychains','-d','user','-s',str(chain)])
  result['identities']=run(['security','find-identity','-p','codesigning',str(chain)]).decode()
  (work/'identity.p12').unlink()
  probe=work/'probe';probe.write_bytes(Path('/usr/bin/true').read_bytes());os.chmod(probe,0o700)
@@ -86,11 +85,13 @@ finally:
  if created:
   try:
    current=shlex.split(run(['security','list-keychains','-d','user']).decode())
-   if str(chain) in current:run(['security','list-keychains','-d','user','-s',*[x for x in current if x!=str(chain)]])
+   if current==[str(chain)]:run(['security','list-keychains','-d','user','-s',*before])
+   else:run(['security','list-keychains','-d','user','-s',*dict.fromkeys(before+[x for x in current if x!=str(chain)])])
    result['own_search_entry_removed']=True
   except Exception as error:result['search_cleanup_error']=str(error)
   try:run(['security','delete-keychain',str(chain)]);result['temporary_keychain_deleted']=True
   except Exception as error:result['cleanup_error']=str(error)
+ after=shlex.split(run(['security','list-keychains','-d','user']).decode());result['search_list_restored']=before==after
  shutil.rmtree(work);result['temporary_search_list_entry_used']=True;result['trust_or_tcc_modified']=False
  if args.evidence:args.evidence.write_text(json.dumps(result,indent=2)+'\n')
-if 'error' in result or result.get('cleanup_error') or result.get('search_cleanup_error'):raise SystemExit(1)
+if 'error' in result or result.get('cleanup_error') or result.get('search_cleanup_error') or not result.get('search_list_restored'):raise SystemExit(1)

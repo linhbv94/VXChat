@@ -37,23 +37,19 @@ const STRINGS = {
   }
 };
 
-const THEMES = ['system', 'dark', 'light', 'black'];
 
 const tabsList = document.getElementById('tabs');
 const tabsWrapper = document.getElementById('tabs-wrapper');
-const emptyState = document.getElementById('empty-state');
-const serviceSelect = document.getElementById('service');
 const statusText = document.getElementById('status');
 const reloadBtn = document.getElementById('reload');
-const themeBtn = document.getElementById('theme-btn');
-const langBtn = document.getElementById('lang-btn');
-const langBadge = document.getElementById('lang-badge');
 const settingsBtn = document.getElementById('settings-btn');
 
 let current = null;
 let currentTheme = 'system';
 let currentLang = 'vi';
-let draggedTabId = null;
+let draggedServiceId = null;
+let serviceOrder = ['messenger','zalo','slack','chatgpt'];
+let hiddenServices = [];
 
 function applyTheme(theme) {
   currentTheme = theme;
@@ -69,7 +65,6 @@ function applyLang(lang) {
   currentLang = lang;
 
   document.documentElement.setAttribute('lang', lang);
-  langBadge.textContent = lang.toUpperCase();
   updateStaticLabels();
   if (current) render(current);
 }
@@ -82,17 +77,17 @@ function updateStaticLabels() {
   const addBtn = document.getElementById('add-btn');
   if (addBtn) addBtn.setAttribute('title', t('addTab'));
   if (reloadBtn) reloadBtn.setAttribute('title', `${t('reload')} (Cmd/Ctrl+R)`);
-  if (themeBtn) themeBtn.setAttribute('title', t('theme'));
-  if (langBtn) langBtn.setAttribute('title', t('lang'));
   if (settingsBtn) settingsBtn.setAttribute('title', `${t('settings')} (Cmd/Ctrl+,)`);
   document.getElementById('setup-btn').title = currentLang === 'en'
     ? 'Open full Facebook (account management / log out)'
     : 'Mở Facebook đầy đủ (quản lý tài khoản / đăng xuất)';
   document.getElementById('page-location').setAttribute('aria-label', currentLang === 'en' ? 'Current page domain' : 'Tên miền trang hiện tại');
   document.getElementById('downloads-btn').title = currentLang === 'en' ? 'Downloads' : 'Tệp đã tải';
-  for (const element of [addBtn, reloadBtn, themeBtn, langBtn, settingsBtn, document.getElementById('downloads-btn'), document.getElementById('setup-btn')]) if (element) element.setAttribute('aria-label', element.title);
-  serviceSelect.setAttribute('aria-label', t('selectService'));
-  document.querySelector('.empty-text').textContent = t('noTabs');
+  for (const element of [addBtn, reloadBtn, settingsBtn, document.getElementById('downloads-btn'), document.getElementById('setup-btn')]) if (element) element.setAttribute('aria-label', element.title);
+  const manage = document.getElementById('manage-services');
+  manage.title = currentLang === 'en' ? 'Show or hide services' : 'Hiện hoặc ẩn dịch vụ';
+  manage.setAttribute('aria-label', manage.title);
+  renderServiceManager();
 }
 
 function createIcon(serviceId) {
@@ -123,185 +118,104 @@ async function command(value) {
   }
 }
 
-function render(state) {
-  if (!state) return;
-  current = state;
-  if (draggedTabId) return;
-  const focusedID = document.activeElement?.closest('.tab')?.dataset.tabId;
-  tabsList.replaceChildren();
-
-  const hasTabs = state.tabs && state.tabs.length > 0;
-  if (hasTabs) {
-    emptyState.classList.remove('is-visible');
-    tabsWrapper.style.display = 'flex';
-  } else {
-    emptyState.classList.add('is-visible');
-    tabsWrapper.style.display = 'none';
+function renderServiceManager() {
+  const panel=document.getElementById('service-manager');if (!current) return;
+  const focused=document.activeElement?.dataset.visibilityId;panel.replaceChildren();
+  const note=document.createElement('p');note.textContent=currentLang==='en'
+    ? 'Drag services to reorder, or use Alt + ← / →. Hiding a shortcut does not close tabs or sign out.'
+    : 'Kéo dịch vụ để sắp xếp, hoặc dùng Alt + ← / →. Ẩn nút không đóng tab hay đăng xuất.';panel.append(note);
+  for (const id of serviceOrder) {
+    const item=current.services?.find(s=>s.id===id);if (!item) continue;
+    const label=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=!hiddenServices.includes(id);input.dataset.visibilityId=id;
+    input.onchange=()=>command({action:'preferences_update',patch:{hidden_services:[...panel.querySelectorAll('input[data-visibility-id]')].filter(item=>!item.checked).map(item=>item.dataset.visibilityId)}});
+    label.append(input,document.createTextNode(item.label));panel.append(label);
   }
-
-  for (const tab of state.tabs) {
-    const isActive = tab.id === state.active_tab_id;
-    const tabEl = document.createElement('div');
-    tabEl.className = 'tab';
-    tabEl.setAttribute('role', 'tab');
-    tabEl.setAttribute('aria-selected', String(isActive));
-    tabEl.setAttribute('tabindex', isActive ? '0' : '-1');
-    tabEl.setAttribute('draggable', 'true');
-    tabEl.dataset.tabId = tab.id;
-
-    if (isActive) tabEl.classList.add('is-active');
-    if (tab.status === 'loading') tabEl.classList.add('is-loading');
-    if (tab.status === 'error') tabEl.classList.add('is-error');
-
-    // Icon
-    const icon = createIcon(tab.service_id);
-    if (icon) tabEl.append(icon);
-
-    // Indicator
-    const indicator = document.createElement('span');
-    indicator.className = 'tab-indicator';
-    tabEl.append(indicator);
-
-    // Label
-    const label = document.createElement('span');
-    label.className = 'tab-title';
-    label.textContent = tab.label;
-    tabEl.append(label);
-
-    // Close button
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'tab-close';
-    closeBtn.type = 'button';
-    closeBtn.textContent = '×';
-    closeBtn.setAttribute('tabindex', '-1');
-    closeBtn.setAttribute('aria-label', `${t('closeTab')} ${tab.label}`);
-    closeBtn.onclick = event => {
-      event.stopPropagation();
-      command({ action: 'close', tab_id: tab.id });
-    };
-    tabEl.append(closeBtn);
-
-    // Selection
-    tabEl.onclick = () => command({ action: 'select', tab_id: tab.id });
-
-    // Keyboard navigation on tabs
-    tabEl.addEventListener('keydown', event => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        command({ action: 'select', tab_id: tab.id });
-      } else if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault();
-        command({ action: 'close', tab_id: tab.id });
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        const next = tabEl.nextElementSibling;
-        if (next && next.classList.contains('tab')) {
-          next.focus();
-          command({ action: 'select', tab_id: next.dataset.tabId });
-        }
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        const prev = tabEl.previousElementSibling;
-        if (prev && prev.classList.contains('tab')) {
-          prev.focus();
-          command({ action: 'select', tab_id: prev.dataset.tabId });
-        }
-      }
-    });
-
-    // Drag and drop reordering
-    tabEl.addEventListener('dragstart', event => {
-      draggedTabId = tab.id;
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', tab.id);
-      tabEl.classList.add('is-dragging');
-    });
-
-    tabEl.addEventListener('dragover', event => {
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'move';
-      const rect = tabEl.getBoundingClientRect();
-      const mid = rect.left + rect.width / 2;
-      if (event.clientX < mid) {
-        tabEl.classList.add('drag-over-left');
-        tabEl.classList.remove('drag-over-right');
-      } else {
-        tabEl.classList.add('drag-over-right');
-        tabEl.classList.remove('drag-over-left');
-      }
-    });
-
-    tabEl.addEventListener('dragleave', () => {
-      tabEl.classList.remove('drag-over-left', 'drag-over-right');
-    });
-
-    tabEl.addEventListener('drop', event => {
-      event.preventDefault();
-      tabEl.classList.remove('drag-over-left', 'drag-over-right');
-      const sourceId = draggedTabId; // Accept only an internal tab drag.
-      const targetId = tab.id;
-      if (sourceId && targetId && sourceId !== targetId) {
-        const rect = tabEl.getBoundingClientRect();
-        const ids = window.vxchatTabOrder(current.tabs.map(t => t.id), sourceId, targetId, event.clientX >= rect.left + rect.width / 2);
-        if (ids) command({ action: 'reorder', tab_ids: ids });
-      }
-    });
-
-    tabEl.addEventListener('dragend', () => {
-      tabEl.classList.remove('is-dragging');
-      document.querySelectorAll('.tab').forEach(el => el.classList.remove('drag-over-left', 'drag-over-right', 'is-dragging'));
-      draggedTabId = null;
-      if (current) render(current);
-    });
-
-    tabsList.append(tabEl);
-  }
-
-  if (focusedID) [...tabsList.children].find(el => el.dataset.tabId === focusedID)?.focus();
-  renderWorkflow(state);
-  const activeTab = state.tabs.find(t => t.id === state.active_tab_id);
-  const location = document.getElementById('page-location'); location.textContent = activeTab?.location || ''; location.title = activeTab?.location || '';
-  document.getElementById('setup-btn').hidden = activeTab?.service_id !== 'messenger';
-  // Populate Add Service dropdown if needed
-  if (!serviceSelect.options.length && state.services) {
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.disabled = true;
-    placeholder.selected = true;
-    placeholder.textContent = '+';
-    serviceSelect.append(placeholder);
-
-    for (const item of state.services) {
-      const option = document.createElement('option');
-      option.value = item.id;
-      option.textContent = item.label;
-      serviceSelect.append(option);
-    }
-  }
+  if (focused) panel.querySelector(`[data-visibility-id="${focused}"]`)?.focus();
 }
-
-// Event Listeners
-serviceSelect.addEventListener('change', () => {
-  const serviceId = serviceSelect.value;
-  if (serviceId) {
-    command({ action: 'add', service_id: serviceId });
-    serviceSelect.value = '';
+document.getElementById('manage-services').onclick=()=>{
+  const panel=document.getElementById('service-manager');panel.hidden=!panel.hidden;
+  document.getElementById('manage-services').setAttribute('aria-expanded',String(!panel.hidden));renderServiceManager();
+};
+document.getElementById('service-manager').onkeydown=event=>{
+  if(event.key==='Escape'){document.getElementById('service-manager').hidden=true;const button=document.getElementById('manage-services');button.setAttribute('aria-expanded','false');button.focus();}
+};
+function moveService(source,target,after){
+  const order=window.vxchatTabOrder(serviceOrder,source,target,after);
+  if(order) void command({action:'preferences_update',patch:{service_order:order}});
+}
+function tabButton(tab){
+  const active=tab.id===current.active_tab_id,element=document.createElement('div');element.className='tab';element.dataset.tabId=tab.id;
+  element.setAttribute('role','tab');element.setAttribute('aria-selected',String(active));element.tabIndex=0;
+  element.classList.toggle('is-active',active);element.classList.toggle('is-loading',tab.status==='loading');element.classList.toggle('is-error',tab.status==='error');
+  const icon=createIcon(tab.service_id);if(icon)element.append(icon);
+  const indicator=document.createElement('span');indicator.className='tab-indicator';element.append(indicator);
+  const title=document.createElement('span');title.className='tab-title';title.textContent=tab.label;element.append(title);
+  element.onclick=()=>command({action:'select',tab_id:tab.id});
+  const close=document.createElement('button');close.type='button';close.className='tab-close';close.textContent='×';close.setAttribute('aria-label',`${t('closeTab')} ${tab.label}`);
+  close.onclick=event=>{event.stopPropagation();void command({action:'close',tab_id:tab.id});};element.append(close);
+  element.onkeydown=event=>{
+    if(event.target!==element||event.altKey)return;
+    if(['Enter',' '].includes(event.key)){event.preventDefault();void command({action:'select',tab_id:tab.id});}
+    if(['Delete','Backspace'].includes(event.key)){event.preventDefault();void command({action:'close',tab_id:tab.id});}
+    if(['ArrowLeft','ArrowRight'].includes(event.key)){
+      const tabs=[...tabsList.querySelectorAll('[role="tab"]')],next=tabs[tabs.indexOf(element)+(event.key==='ArrowRight'?1:-1)];
+      if(next){event.preventDefault();next.focus();void command({action:'select',tab_id:next.dataset.tabId});}
+    }
+  };return element;
+}
+function render(state){
+  if(!state)return;current=state;if(draggedServiceId)return;
+  const focus=document.activeElement,focusTab=focus?.closest('.tab')?.dataset.tabId,focusService=focus?.closest('.service-group')?.dataset.serviceId,focusPlus=focus?.dataset.addService;
+  tabsList.replaceChildren();
+  for(const id of serviceOrder.filter(id=>!hiddenServices.includes(id))){
+    const definition=state.services?.find(item=>item.id===id);if(!definition)continue;
+    const tabs=state.tabs.filter(tab=>tab.service_id===id),group=document.createElement('div');group.className='service-group';group.dataset.serviceId=id;group.draggable=true;
+    let primary;
+    if(tabs.length)primary=tabButton(tabs[0]);
+    else{
+      primary=document.createElement('button');primary.type='button';primary.className='tab service-launch is-unopened';
+      const icon=createIcon(id);if(icon)primary.append(icon);
+      const label=document.createElement('span');label.className='tab-title';label.textContent=definition.label;primary.append(label);
+      primary.onclick=()=>command({action:'add',service_id:id});
+    }
+    primary.dataset.launchService=id;primary.title=`${definition.label} · ${currentLang==='en'?(tabs.length?'Open · drag to reorder':'Not open · click to open'):(tabs.length?'Đang mở · kéo để sắp xếp':'Chưa mở · bấm để mở')}`;group.append(primary);
+    for(const tab of tabs.slice(1))group.append(tabButton(tab));
+    if(['messenger','chatgpt'].includes(id)){
+      const plus=document.createElement('button');plus.type='button';plus.className='service-plus';plus.textContent='+';plus.dataset.addService=id;
+      plus.title=id==='messenger'
+        ?(currentLang==='en'?'Add Messenger account — coming soon':'Thêm tài khoản Messenger — chưa hỗ trợ')
+        :(currentLang==='en'?'New ChatGPT tab · same signed-in account':'Mở thêm tab ChatGPT · cùng tài khoản đang đăng nhập');
+      plus.setAttribute('aria-label',plus.title);
+      if(id==='messenger'){plus.setAttribute('aria-disabled','true');plus.classList.add('is-placeholder');}
+      else plus.onclick=()=>command({action:'add',service_id:id});group.append(plus);
+    }
+    group.onkeydown=event=>{
+      if(!event.altKey||!['ArrowLeft','ArrowRight'].includes(event.key))return;
+      const after=event.key==='ArrowRight',target=serviceOrder[serviceOrder.indexOf(id)+(after?1:-1)];
+      if(target){event.preventDefault();moveService(id,target,after);}
+    };
+    group.ondragstart=event=>{draggedServiceId=id;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',id);group.classList.add('is-dragging');};
+    group.ondragover=event=>{if(draggedServiceId){event.preventDefault();event.dataTransfer.dropEffect='move';group.classList.add('drag-over');}};
+    group.ondragleave=()=>group.classList.remove('drag-over');
+    group.ondrop=event=>{
+      if(!draggedServiceId)return;event.preventDefault();const source=draggedServiceId;draggedServiceId=null;
+      const rect=group.getBoundingClientRect();moveService(source,id,event.clientX>=rect.left+rect.width/2);render(current);
+    };
+    group.ondragend=()=>{draggedServiceId=null;render(current);};tabsList.append(group);
   }
-});
+  const restore=(focusPlus&&tabsList.querySelector(`[data-add-service="${focusPlus}"]`))
+    ||(focusTab&&tabsList.querySelector(`[data-tab-id="${focusTab}"]`))
+    ||(focusService&&tabsList.querySelector(`[data-launch-service="${focusService}"]`));
+  restore?.focus();
+  renderServiceManager();renderWorkflow(state);
+  const active=state.tabs.find(tab=>tab.id===state.active_tab_id),location=document.getElementById('page-location');location.textContent=active?.location||'';location.title=location.textContent;
+  document.getElementById('setup-btn').hidden=active?.service_id!=='messenger';
+}
 
 reloadBtn.onclick = () => {
   if (current?.active_tab_id) {
     command({ action: 'reload', tab_id: current.active_tab_id });
   }
-};
-
-themeBtn.onclick = () => {
-  const nextIndex = (THEMES.indexOf(currentTheme) + 1) % THEMES.length;
-  command({ action: 'preferences_update', patch: { theme: THEMES[nextIndex] } });
-};
-
-langBtn.onclick = () => {
-  command({ action: 'preferences_update', patch: { language: currentLang === 'vi' ? 'en' : 'vi' } });
 };
 
 if (settingsBtn) {
@@ -310,16 +224,12 @@ if (settingsBtn) {
   };
 }
 
-// Empty state buttons
-document.querySelectorAll('.empty-btn').forEach(btn => {
-  btn.onclick = () => {
-    const serviceId = btn.dataset.service;
-    if (serviceId) command({ action: 'add', service_id: serviceId });
-  };
-});
-
 // Native menu accelerators own global shortcuts, including when remote content has focus.
-function applyPreferences(value) { applyTheme(value.theme); applyLang(value.language); }
+function applyPreferences(value) {
+  serviceOrder = value.service_order || serviceOrder;
+  hiddenServices = value.hidden_services || [];
+  applyTheme(value.theme); applyLang(value.language);
+}
 const workflow = document.getElementById('workflow');
 function renderWorkflow(state) {
   const tab = state.tabs.find(item => item.id === state.active_tab_id);
@@ -385,7 +295,7 @@ const downloadTracker = window.vxchatDownloadFeedback?.createDownloadFeedbackTra
 
 document.getElementById('downloads-btn').onclick = () => {
   clearDownloadCue();
-  void command({ action: 'downloads' });
+  void command({ action: 'download_panel' });
 };
 let reportedHeight = 0;
 new ResizeObserver(() => {

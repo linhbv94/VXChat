@@ -21,6 +21,31 @@ function fixture() {
   } });
   engine.start(); return { engine, store, owners };
 }
+test('AI labels omit 1, keep remaining labels stable and reuse a closed slot without replacing views', async () => {
+  const { engine } = fixture();
+  const first = engine.state.tabs.find(t => t.instance_id === 'default_chatgpt');
+  assert.equal(first.label,'ChatGPT');
+  const second = await engine.add('chatgpt'), third = await engine.add('chatgpt');
+  assert.equal(engine.state.tabs.find(t=>t.id===second).label,'ChatGPT 2');
+  assert.equal(engine.state.tabs.find(t=>t.id===third).label,'ChatGPT 3');
+  const thirdOwner=engine.owners.get(third);
+  await engine.close(second); const replacement=await engine.add('chatgpt');
+  assert.equal(engine.state.tabs.find(t=>t.id===replacement).label,'ChatGPT 2');
+  assert.equal(engine.owners.get(third),thirdOwner);
+  await engine.reorder(engine.state.tabs.map(t=>t.id).reverse());
+  assert.equal(engine.state.tabs.find(t=>t.id===third).label,'ChatGPT 3');
+});
+test('old generated AI label migration persists before allocating a view, preserving IDs and custom labels', () => {
+  const state=initialState(), tab=state.tabs.find(t=>t.instance_id==='default_chatgpt');tab.label='ChatGPT 1';
+  const before=structuredClone(state);let saved,allocations=0;
+  const store={load:()=>state,save:value=>{saved=structuredClone(value);}};
+  const engine=new TabEngine({store,createOwner:()=>{allocations++;assert.ok(saved);return {load(){},setSelected(){},dispose(){}};}});
+  engine.start();assert.equal(saved.tabs.find(t=>t.id===tab.id).label,'ChatGPT');
+  assert.deepEqual(saved.tabs.map(t=>t.id),before.tabs.map(t=>t.id));assert.deepEqual(saved.instances,before.instances);
+  assert.equal(state.tabs.find(t=>t.id===tab.id).label,'ChatGPT 1');assert.equal(allocations,4);engine.dispose();
+  const failed=new TabEngine({store:{load:()=>before,save(){throw Error('disk_full');}},createOwner(){throw Error('must_not_allocate');}});
+  assert.throws(()=>failed.start(),/disk_full/);assert.equal(before.tabs.find(t=>t.id===tab.id).label,'ChatGPT 1');
+});
 test('non-AI duplicate selects existing without allocation/load; AI shares instance but owns new view', async () => {
   const { engine, owners } = fixture();
   const existing = engine.state.tabs.find(t => t.instance_id === 'default_slack');

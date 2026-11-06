@@ -11,6 +11,7 @@ const sampleMemory = label => { const metrics = app.getAppMetrics(); memorySampl
 const { initialState } = require('../src/core/state_store');
 const temporary = process.env.VXCHAT_FIXTURE_DIR;
 if (!temporary) throw new Error('Run via npm run test:shell');
+app.setPath('downloads',temporary);
 process.on('uncaughtException', error => { console.error(error.stack); app.exit(1); });
 process.on('unhandledRejection', error => { console.error(error?.stack || error); app.exit(1); });
 const state = { ...initialState(), tabs: [], active_tab_id: null };
@@ -31,6 +32,12 @@ ready.then(async () => {
   const contents = webContents.getAllWebContents();
   assert.equal(contents.length, 1, 'Empty fixture must create exactly the local shell');
   const shell = contents[0];
+  const captureLauncher=async name=>{
+    if (!process.env.VXCHAT_QA_OUTPUT) return;
+    const host=BaseWindow.getAllWindows().find(w=>w.getTitle()==='VXChat');host.showInactive();
+    try {await new Promise(resolve=>setTimeout(resolve,150));fs.writeFileSync(path.join(process.env.VXCHAT_QA_OUTPUT,name),(await shell.capturePage()).toPNG());}
+    finally {host.hide();}
+  };
   sampleMemory('empty_shell');
   assert.ok(shell);
   // app.ready resolves after loadFile; did-finish-load has already fired.
@@ -38,6 +45,32 @@ ready.then(async () => {
   phase = 'state_ipc';
   const result = await shell.executeJavaScript('window.vxchat.command({ action: "state" })');
   assert.equal(result.ok, true); assert.deepEqual(result.state.tabs, []);
+  assert.equal(await shell.executeJavaScript('document.querySelectorAll("#theme-btn,#lang-btn").length'),0,'Theme and language belong in Settings only');
+  phase='persistent_service_launcher';
+  assert.deepEqual(await shell.executeJavaScript('[...document.querySelectorAll(".service-group")].map(e=>e.dataset.serviceId)'),['messenger','zalo','slack','chatgpt']);
+  assert.equal(await shell.executeJavaScript('document.querySelector("[data-add-service=messenger]").getAttribute("aria-disabled")'),'true');
+  const launcherTest=await shell.executeJavaScript(`(() => {
+    const state=current;render({...state,tabs:[{id:'synthetic',service_id:'chatgpt',label:'ChatGPT',status:'ready'}],active_tab_id:'synthetic'});
+    const services=[...document.querySelectorAll('.service-group')].map(e=>e.dataset.serviceId);
+    document.querySelector('[data-add-service=messenger]').click();
+    render(state);return {services,plusLabel:document.querySelector('[data-add-service=chatgpt]').getAttribute('aria-label')};
+  })()`);
+  assert.equal(launcherTest.services.length,4);assert.ok(/ChatGPT/.test(launcherTest.plusLabel));
+  assert.equal((await shell.executeJavaScript('window.vxchat.command({action:"state"})')).state.tabs.length,0);
+  await shell.executeJavaScript('document.getElementById("manage-services").click();document.querySelector("[data-visibility-id=slack]").click()');
+  for(let n=0;n<30;n++){if(await shell.executeJavaScript('!document.querySelector(".service-group[data-service-id=slack]")'))break;await new Promise(r=>setTimeout(r,20));}
+  assert.equal(await shell.executeJavaScript('!!document.querySelector(".service-group[data-service-id=slack]")'),false);
+  assert.deepEqual((await shell.executeJavaScript('window.vxchat.command({action:"preferences_get"})')).preferences.hidden_services,['slack']);
+  await shell.executeJavaScript(`(() => {
+    const source=document.querySelector('[data-service-id=chatgpt]'),target=document.querySelector('[data-service-id=messenger]'),transfer=new DataTransfer();
+    source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:transfer}));
+    target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer,clientX:target.getBoundingClientRect().left}));
+  })()`);
+  for(let n=0;n<30;n++){if(await shell.executeJavaScript('document.querySelector(".service-group").dataset.serviceId === "chatgpt"'))break;await new Promise(r=>setTimeout(r,20));}
+  assert.equal(await shell.executeJavaScript('document.querySelector(".service-group").dataset.serviceId'),'chatgpt');
+  assert.equal(webContents.getAllWebContents().length,1,'Hiding and reordering shortcuts must not allocate service views');
+  await shell.executeJavaScript('window.vxchat.command({action:"preferences_update",patch:{service_order:["messenger","zalo","slack","chatgpt"],hidden_services:[]}})');
+  await shell.executeJavaScript('document.getElementById("manage-services").click()');
   phase = 'invalid_ipc';
   const rejected = await shell.executeJavaScript('window.vxchat.command({ action: "add", service_id: "slack", partition: "persist:injected" })');
   assert.equal(rejected.ok, false);
@@ -55,6 +88,7 @@ ready.then(async () => {
   assert.equal(geometry.titlebar.height, 32); assert.equal(geometry.tabbar.height, 36);
   if (process.platform === 'darwin') { assert.equal(geometry.glyph.x, 82); assert.equal(geometry.name.x, 104); assert.equal(geometry.viewport - geometry.settings.x - geometry.settings.width, 12); }
   assert.equal(geometry.settings.width, 28); assert.equal(geometry.locationIsEditable, false);
+  await captureLauncher('launcher_empty_vi.png');
   const primaryWindow = BaseWindow.getAllWindows().find(w => w.getTitle() === 'VXChat');
   primaryWindow.setContentSize(800, 600);
   // Query the rendered view after native resize, never synthesize metrics from tokens.
@@ -89,6 +123,22 @@ ready.then(async () => {
   assert.ok(await settings.executeJavaScript('document.getElementById("browser-controls").textContent.includes("Ask where to save")'));
   await settings.executeJavaScript('window.vxchat.command({action:"preferences_update",patch:{language:"vi"}})');
   const settingsClosed = once(settings, 'destroyed'); await settings.executeJavaScript('window.vxchat.command({ action: "window_close" })').catch(() => {}); await settingsClosed;
+  phase='chatgpt_scoped_plus';
+  const aiSession=session.fromPartition('persist:service-chatgpt');
+  await aiSession.protocol.handle('https',()=>new Response('<!doctype html><title>Synthetic AI</title><textarea></textarea>',{headers:{'content-type':'text/html'}}));
+  const firstAIReady=nextPage();await shell.executeJavaScript('document.querySelector("[data-launch-service=chatgpt]").click()');const firstAI=await firstAIReady;
+  const secondAIReady=nextPage();await shell.executeJavaScript('document.querySelector("[data-add-service=chatgpt]").click()');const secondAI=await secondAIReady;
+  const aiState=(await shell.executeJavaScript('window.vxchat.command({action:"state"})')).state;
+  assert.deepEqual(aiState.tabs.map(tab=>tab.label),['ChatGPT','ChatGPT 2']);assert.equal(firstAI.session,secondAI.session);
+  assert.equal(await shell.executeJavaScript('document.querySelector("[data-service-id=chatgpt]").lastElementChild.dataset.addService'),'chatgpt');
+  assert.equal(await shell.executeJavaScript('document.querySelector("[data-launch-service=slack]").classList.contains("is-unopened")'),true);
+  assert.equal(await shell.executeJavaScript('document.querySelector("[data-launch-service=chatgpt]").classList.contains("is-unopened")'),false);
+  assert.equal(await shell.executeJavaScript('document.getElementById("page-location").nextElementSibling.id'),'manage-services');
+  await captureLauncher('launcher_two_chatgpt_vi.png');
+  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),4);
+  for(const tab of aiState.tabs)await shell.executeJavaScript(`window.vxchat.command({action:'close',tab_id:${JSON.stringify(tab.id)}})`);
+  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),4,'Closing the last tab retains all service shortcuts');
+  aiSession.protocol.unhandle('https');
   phase = 'download_cue_feedback';
   const cueTest = await shell.executeJavaScript(`(() => {
     const btn = document.getElementById('downloads-btn');
@@ -113,9 +163,15 @@ ready.then(async () => {
   assert.ok(cueTest.liveText.length > 0);
   assert.equal(cueTest.afterClickHasClass, false);
   assert.equal(cueTest.iconAfter, '↓');
+  phase='download_panel_manual';
+  let panel;
+  for(let n=0;n<60;n++){panel=webContents.getAllWebContents().find(w=>w.getURL().endsWith('/downloads_panel.html'));if(panel&&!panel.isLoadingMainFrame())break;await new Promise(r=>setTimeout(r,20));}
+  assert.ok(panel);assert.equal((await panel.executeJavaScript('window.vxchat.command({action:"download_list"})')).downloads.length,0);
+  assert.equal((await panel.executeJavaScript('window.vxchat.command({action:"add",service_id:"chatgpt"})')).ok,false);
+  await panel.executeJavaScript('window.vxchat.command({action:"window_close"})');
   phase = 'messenger_setup';
   const partition = session.fromPartition('persist:service-messenger');
-  await partition.protocol.handle('https', request => new URL(request.url).pathname === '/fixture_image.png' ? new Response(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64'), { headers:{'content-type':'image/png'} }) : new Response('<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}header{position:fixed;top:0;height:56px}.chat-frame{position:absolute;top:56px;bottom:0;width:100%}.chat-shell{display:flex;height:100%}nav{width:200px}main{display:flex;flex-direction:column;flex:1}textarea{margin-top:auto;height:40px}</style></head><body><header role="banner" id="global">Facebook navigation</header><div class="chat-frame"><div class="chat-shell"><nav role="navigation"><a href="/messages/t/123">Synthetic thread</a></nav><main role="main">Synthetic Messenger fixture<textarea id="draft"></textarea></main></div></div></body></html>', { headers: { 'content-type': 'text/html' } }));
+  await partition.protocol.handle('https', request => new URL(request.url).pathname === '/fixture_download.txt' ? new Response('synthetic download', {headers:{'content-type':'text/plain','content-disposition':'attachment; filename=fixture_download.txt'}}) : new URL(request.url).pathname === '/fixture_image.png' ? new Response(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64'), { headers:{'content-type':'image/png'} }) : new Response('<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;min-height:calc(100vh + 8px);--header-height:56px}header{position:fixed;top:0;height:var(--header-height)}.chat-frame{--header-height:56px;position:absolute;top:var(--header-height);height:calc(100vh - var(--header-height));width:100%}.chat-shell{display:flex;height:100%}nav{width:200px;overflow-y:auto}nav .thread-list{height:1600px}main{display:flex;flex-direction:column;flex:1;min-height:0}textarea{margin-top:auto;height:40px}</style></head><body><header role="banner" id="global">Facebook navigation</header><div class="chat-frame"><div class="chat-shell"><nav role="navigation"><div class="thread-list"><a href="/messages/t/123">Synthetic thread</a></div></nav><main role="main">Synthetic Messenger fixture<textarea id="draft"></textarea></main></div></div></body></html>', { headers: { 'content-type': 'text/html' } }));
   const remoteReady = nextPage(); const added = await shell.executeJavaScript('window.vxchat.command({ action: "add", service_id: "messenger" })');
   assert.equal(added.ok, true); const remote = await remoteReady;
   assert.equal(remote.getURL(), 'https://www.facebook.com/');
@@ -142,6 +198,62 @@ ready.then(async () => {
     if (layout.top === 0) break; await new Promise(resolve => setTimeout(resolve,20));
   }
   assert.equal(layout.top,0); assert.ok(layout.bottom <= layout.viewport); assert.ok(layout.bottom >= layout.viewport - 10);
+  phase='download_completion_panel';
+  const originalOpenPath=electron.shell.openPath,originalReveal=electron.shell.showItemInFolder,openedFiles=[],revealedFiles=[];
+  electron.shell.openPath=async file=>{openedFiles.push(file);return '';};electron.shell.showItemInFolder=file=>revealedFiles.push(file);
+  try{
+    const focusedBefore=webContents.getFocusedWebContents();
+    remote.downloadURL('https://www.facebook.com/fixture_download.txt');
+    let completed;
+    for(let n=0;n<100;n++){
+      const data=await panel.executeJavaScript('window.vxchat.command({action:"download_list"})');completed=data.downloads.find(item=>item.status==='completed');
+      if(completed)break;await new Promise(r=>setTimeout(r,20));
+    }
+    assert.ok(completed,'A real synthetic download must complete');assert.equal(webContents.getFocusedWebContents(),focusedBefore);
+    assert.ok(primaryWindow.contentView.children.some(v=>v.webContents===panel),'Completion must attach the dropdown above content');
+    for(let n=0;n<30;n++){if(await panel.executeJavaScript('!!document.querySelector("[data-action=open]")'))break;await new Promise(r=>setTimeout(r,20));}
+    assert.equal(await panel.executeJavaScript('!!document.querySelector("[data-action=reveal]")'),true);
+    if(process.env.VXCHAT_QA_OUTPUT){
+      primaryWindow.showInactive();
+      try{await new Promise(r=>setTimeout(r,150));fs.writeFileSync(path.join(process.env.VXCHAT_QA_OUTPUT,'download_panel.png'),(await panel.capturePage()).toPNG());}
+      finally{primaryWindow.hide();}
+    }
+    await panel.executeJavaScript(`window.vxchat.command({action:'download_open',id:${JSON.stringify(completed.id)}})`);
+    await panel.executeJavaScript(`window.vxchat.command({action:'download_reveal',id:${JSON.stringify(completed.id)}})`);
+    assert.equal(openedFiles.length,1);assert.deepEqual(openedFiles,revealedFiles);assert.equal(path.dirname(openedFiles[0]),temporary);
+    assert.equal((await panel.executeJavaScript('window.vxchat.command({action:"download_open",id:"/tmp/arbitrary"})')).ok,false);
+    await panel.executeJavaScript('window.vxchat.command({action:"window_close"})');
+    assert.equal(primaryWindow.contentView.children.some(v=>v.webContents===panel),false);
+    await shell.executeJavaScript('window.vxchat.command({action:"download_panel"})');
+    let escapePrevented=false;remote.emit('before-input-event',{preventDefault(){escapePrevented=true;}},{type:'keyDown',key:'Escape'});
+    assert.equal(escapePrevented,true);assert.equal(primaryWindow.contentView.children.some(v=>v.webContents===panel),false);
+    const fullDownloadsReady=nextPage();await panel.executeJavaScript('window.vxchat.command({action:"downloads"})');const fullDownloads=await fullDownloadsReady;
+    for(let n=0;n<30;n++){if(await fullDownloads.executeJavaScript('!!document.querySelector("[data-action=open]")'))break;await new Promise(r=>setTimeout(r,20));}
+    assert.equal(await fullDownloads.executeJavaScript('!!document.querySelector("[data-action=reveal]")'),true);
+    const fullClosed=once(fullDownloads,'destroyed');await fullDownloads.executeJavaScript('window.vxchat.command({action:"window_close"})').catch(()=>{});await fullClosed;
+  }finally{electron.shell.openPath=originalOpenPath;electron.shell.showItemInFolder=originalReveal;}
+  // Exercise React-like subtree replacement, nested header variables, the
+  // thread rail and viewport changes rather than one static common frame.
+  const readGeometry = async () => remote.executeJavaScript(`(() => {
+    const nav = document.querySelector('nav'), main = document.querySelector('main');
+    const frame = document.querySelector('.chat-frame').getBoundingClientRect();
+    nav.scrollTop = 240;
+    return {top:frame.top,bottom:frame.bottom,viewport:innerHeight,navBottom:nav.getBoundingClientRect().bottom,
+      composerBottom:document.querySelector('#draft').getBoundingClientRect().bottom,scroll:nav.scrollTop,
+      outerOverflow:getComputedStyle(document.documentElement).overflowY,
+      hit:main.contains(document.elementFromPoint(innerWidth-80,innerHeight-30)),
+      fixedMarkers:document.querySelectorAll('[data-vx-messenger-frame],[data-vx-messenger-shell]').length};
+  })()`);
+  for (const [width,height] of [[800,600],[1200,820]]) {
+    primaryWindow.setSize(width,height);
+    await remote.executeJavaScript(`document.querySelector('main').innerHTML = '<section style="--header-height:56px;display:flex;flex-direction:column;flex:1;min-height:0"><div>New conversation</div><textarea id="draft"></textarea></section>'`);
+    await new Promise(resolve => setTimeout(resolve,100));
+    const actual = await readGeometry();
+    assert.equal(actual.top,0); assert.equal(actual.bottom,actual.viewport);
+    assert.equal(actual.navBottom,actual.viewport); assert.ok(actual.composerBottom >= actual.viewport-10);
+    assert.equal(actual.scroll,240); assert.equal(actual.outerOverflow,'hidden');
+    assert.equal(actual.hit,true); assert.equal(actual.fixedMarkers,0);
+  }
   phase = 'image_viewer';
   let imageMenu; const originalMenu = Menu.buildFromTemplate;
   Menu.buildFromTemplate = template => { imageMenu = template; return { popup() {} }; };

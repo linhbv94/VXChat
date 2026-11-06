@@ -7,6 +7,7 @@ function routeStage(serviceID, value) {
   const kind = navigationKind(serviceID, value);
   if (kind === 'auth' || (kind === 'service' && AUTH_PATH.test(url.pathname))) return 'auth';
   if (kind !== 'service') return 'external';
+  if (serviceID === 'zalo') return url.hostname === 'chat.zalo.me' && !url.port ? 'client' : 'service';
   if (serviceID === 'slack') return url.hostname === 'app.slack.com' && /^\/client\/[A-Za-z0-9]+(?:\/|$)/.test(url.pathname) ? 'client' : 'auth';
   if (serviceID === 'messenger') return /^\/messages(?:\/|$)/.test(url.pathname) ? 'client' : 'setup';
   if (serviceID === 'chatgpt' && /^\/(?:c|g)\//.test(url.pathname)) return 'client';
@@ -37,6 +38,7 @@ function navigationDecision(serviceID, value, { auxiliary = false, currentURL = 
 function canHandoff(serviceID, value, primaryURL) {
   if (routeStage(serviceID, value) !== 'client') return false;
   if (serviceID === 'slack') return /^\/client\/T[A-Z0-9]*(?:\/[CGD][A-Z0-9]*)?\/?$/.test(httpsURL(value).pathname);
+  if (serviceID === 'zalo') return routeStage(serviceID, primaryURL) === 'auth';
   return serviceID === 'messenger' && ['auth', 'setup'].includes(routeStage(serviceID, primaryURL));
 }
 class Workflow {

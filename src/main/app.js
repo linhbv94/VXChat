@@ -22,6 +22,8 @@ const { text } = require('./messages');
 const product = require('../core/product_metadata');
 const { createUpdates } = require('./update_adapter');
 const { UpdateNotice } = require('./update_notice');
+const { DownloadPanel } = require('./download_panel');
+const { createDownloadFeedbackTracker } = require('../shell/download_feedback');
 const { resolveReleaseQA,recordReleaseQA } = require('./release_qa');
 app.setName('VXChat');
 if (app.isPackaged && process.platform === 'win32') app.setAppUserModelId('com.vxutilities.vxmesschat');
@@ -35,6 +37,7 @@ if (qaProfile) {
 let window = null; let engine = null; let preferences; let downloads; let ipc;
 let quitting = false; let quitPending = false; let chromeHeight = 68;
 let updates = null; let updateNotice = null;
+let downloadPanel = null;
 const secondary = new Map();
 const getLanguage = () => preferences?.snapshot().language || 'vi';
 const t = key => text(getLanguage(), key);
@@ -42,10 +45,14 @@ const uiFile = name => path.join(__dirname, `../shell/${name}.html`);
 const webPreferences = () => ({ preload: path.join(__dirname, '../preload/shell.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, webviewTag: false, partition: 'persist:vxchat_shell' });
 function localView(file) {
   const view = new WebContentsView({ webPreferences: webPreferences() });
+  view.webContents.on('before-input-event',dismissDownloadPanel);
   view.webContents.on('will-navigate', event => event.preventDefault());
   view.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   view.webContents.on('will-attach-webview', event => event.preventDefault());
   return view;
+}
+function dismissDownloadPanel(event,input){
+  if(input.type==='keyDown'&&input.key==='Escape'&&downloadPanel?.attached){downloadPanel.hide();event.preventDefault();}
 }
 function openUtility(role) {
   const existing = secondary.get(role);
@@ -104,15 +111,17 @@ async function createWindow() {
   const store = await recoverable(stateFile, () => { const value = new StateStore(stateFile); value.load(); return value; }, initialState); if (!store) return;
   window = new BaseWindow({ width: 1200, height: 820, minWidth: 800, minHeight: 600, title: 'VXChat', backgroundColor: '#141821', ...primaryWindowOptions(process.platform), show: !qaProfile });
   const shellFile = uiFile('index'); const shellView = localView(shellFile); window.contentView.addChildView(shellView);
-  const owners = new Map(); const changed = () => { if (engine) ipc?.broadcast('state', engine.snapshot()); updateNotice?.resize(); };
-  downloads = new DownloadRegistry({ shell: electron.shell, directory: app.getPath('downloads'), getPreferences: () => preferences.snapshot(), changed: () => ipc?.broadcast('downloads', downloads.snapshot()) });
+  const owners = new Map(); const changed = () => { if (engine) ipc?.broadcast('state', engine.snapshot()); updateNotice?.resize(); downloadPanel?.resize(); };
+  const completionTracker=createDownloadFeedbackTracker({onCue:()=>downloadPanel?.show()});completionTracker.update([]);
+  downloads = new DownloadRegistry({ shell: electron.shell, directory: app.getPath('downloads'), getPreferences: () => preferences.snapshot(), changed: () => {const records=downloads.snapshot();ipc?.broadcast('downloads',records);completionTracker.update(records);} });
   const policy = new SessionPolicy({ session, dialog, window, resolveOwner: wc => owners.get(wc), permissionStore, downloads, systemPreferences: electron.systemPreferences, getLanguage, contentsFromFrame: frame => electron.webContents.fromFrame(frame), selectDisplaySource: createDisplayPicker({ desktopCapturer: electron.desktopCapturer, Menu, window, getLanguage }) });
-  engine = new TabEngine({ store, onChange: changed, createOwner: args => new ContentOwner({ ...args, electron, window, sessionPolicy: policy, register: (wc, owner) => owners.set(wc, owner), unregister: wc => owners.delete(wc), changed, getLanguage, serviceState, getZoom: id => preferences.snapshot().zoom_levels[id] || 1, getChromeHeight: () => chromeHeight, getStartURL: id => id === 'slack' ? preferences.snapshot().slack_workspace_url : null }) });
+  engine = new TabEngine({ store, onChange: changed, createOwner: args => new ContentOwner({ ...args, electron, window, sessionPolicy: policy, register: (wc, owner) => {owners.set(wc, owner);wc.on('before-input-event',dismissDownloadPanel);}, unregister: wc => {owners.delete(wc);wc.removeListener('before-input-event',dismissDownloadPanel);}, changed, getLanguage, serviceState, getZoom: id => preferences.snapshot().zoom_levels[id] || 1, getChromeHeight: () => chromeHeight, getStartURL: id => id === 'slack' ? preferences.snapshot().slack_workspace_url : null }) });
   const resize = () => {
     if (window.isDestroyed()) return;
     const { width } = window.getContentBounds(); shellView.setBounds({ x: 0, y: 0, width, height: chromeHeight });
     engine.owners.get(engine.state.active_tab_id)?.resize();
     updateNotice?.resize();
+    downloadPanel?.resize();
   };
   const savePreferences = work => {
     let value; try { value = work(); } catch (error) { if (['invalid_preferences', 'invalid_workspace_url'].includes(error.message)) throw error; throw new Error('config_write_failed'); }
@@ -143,7 +152,8 @@ async function createWindow() {
       case 'update_layout': updateNotice?.resize(command.height); return {};
       case 'repository_open': await electron.shell.openExternal(product.repository); return {};
       case 'window_close': client.close?.(); return {};
-      case 'downloads': openUtility('downloads'); return {};
+      case 'downloads': downloadPanel?.hide();openUtility('downloads'); return {};
+      case 'download_panel': downloadPanel?.toggle();return {};
       case 'download_list': return { downloads: downloads.snapshot() };
       case 'download_cancel': downloads.cancel(command.id); return {};
       case 'download_open': await downloads.open(command.id); return {};
@@ -157,6 +167,8 @@ async function createWindow() {
       default: throw new Error('invalid_command');
     }
   } });
+  downloadPanel=new DownloadPanel({window,createView:localView,file:uiFile('downloads_panel'),ipc});
+  window.on('blur',()=>downloadPanel?.hide());
   updates = createUpdates({app,nativeUpdater:electron.autoUpdater,releaseQA,receiptFile:path.join(root,'update_receipt_v1.json'),changed:state => {ipc.broadcast('updates',state); updateNotice?.sync(state);},canRestart:() => engine.enqueue(async () => { for (const owner of engine.owners.values()) if (!await owner.confirmClose()) return false; return true; }),prepareQuit:() => {quitting = true;},undoPrepareQuit:() => {quitting = false;} });
   // Dev fixtures have no update notice WebContents and never contact Releases.
   if (app.isPackaged) { const file = uiFile('update_notice'); updateNotice = new UpdateNotice({window,view:localView(file),file,ipc}); }
@@ -168,7 +180,7 @@ async function createWindow() {
   window.on('close', event => { if (!quitting) { event.preventDefault(); window.hide(); } });
   window.on('closed', () => {
     for (const utility of secondary.values()) if (!utility.isDestroyed()) utility.destroy();
-    updateNotice?.dispose(); updates?.dispose(); ipc(); engine.dispose(); downloads.dispose(); if (!shellView.webContents.isDestroyed()) shellView.webContents.close({ waitForBeforeUnload: false }); window = null;
+    downloadPanel?.dispose();updateNotice?.dispose(); updates?.dispose(); ipc(); engine.dispose(); downloads.dispose(); if (!shellView.webContents.isDestroyed()) shellView.webContents.close({ waitForBeforeUnload: false }); window = null;
   });
   app.setAboutPanelOptions({ applicationName: 'VXChat', applicationVersion: app.getVersion(), credits: `${product.author}\n${product.repository}`, authors: [product.author], website: product.repository, iconPath: path.join(__dirname, '../../icon.png') });
   buildMenu();

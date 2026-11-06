@@ -2,7 +2,8 @@
 const fs = require('node:fs');const path = require('node:path');const http = require('node:http');const {createHash} = require('node:crypto');const {spawn,execFileSync} = require('node:child_process');const {Transform} = require('node:stream');const assert = require('node:assert/strict');
 const contextFile = path.resolve(process.argv[2]);const context = JSON.parse(fs.readFileSync(contextFile));const out = path.dirname(contextFile);const {root,source} = context;
 if (!path.basename(root).startsWith('vxchat_release_fixture_') || fs.lstatSync(root).isSymbolicLink()) throw new Error('Invalid owned QA fixture');
-const target = path.join(source,'dist/vxchat_1.0.1_macos_arm64.zip');const old = path.resolve('dist/mac-arm64/VXChat.app');const installed = path.join(root,'installed/VXChat.app');
+const target = path.join(source,'dist/vxchat_1.0.1_macos_arm64.zip');const old = path.resolve(process.argv[3] || 'dist/mac-arm64/VXChat.app');const installed = path.join(root,'installed/VXChat.app');
+assert.equal(execFileSync('/usr/libexec/PlistBuddy',['-c','Print :CFBundleShortVersionString',path.join(old,'Contents/Info.plist')],{encoding:'utf8'}).trim(),'1.0.0','Pass the verified published 1.0.0 baseline explicitly after building 1.0.1');
 const fileName = path.basename(target);const size = fs.statSync(target).size;const digest = createHash('sha512').update(fs.readFileSync(target)).digest('base64');
 const feed = `version: 1.0.1\nfiles:\n  - url: ${fileName}\n    sha512: ${digest}\n    size: ${size}\npath: ${fileName}\nsha512: ${digest}\nreleaseDate: '${new Date().toISOString()}'\n`;
 let tamper = true;let child;let currentPID;let socket;let failed = false;const requests = [];let phase = 'initial';
