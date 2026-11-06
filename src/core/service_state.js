@@ -1,0 +1,51 @@
+'use strict';
+const { readJSON, writeJSON } = require('./atomic_json');
+const { defaultInstances, service, httpsURL } = require('./services');
+const { routeStage } = require('./workflow');
+function initialServiceState() {
+  return { schema_version: 1, entries: defaultInstances().map(i => ({ instance_id: i.id, setup_confirmed: false, workspace_id: null })) };
+}
+function validateServiceState(value) {
+  const expected = defaultInstances();
+  if (!value || Object.keys(value).sort().join() !== 'entries,schema_version' || value.schema_version !== 1 || !Array.isArray(value.entries) || value.entries.length !== expected.length) throw new Error('invalid_service_state');
+  const seen = new Set();
+  for (const e of value.entries) {
+    const instance = e && expected.find(i => i.id === e.instance_id);
+    if (!instance || Object.keys(e).sort().join() !== 'instance_id,setup_confirmed,workspace_id' || seen.has(e.instance_id) || typeof e.setup_confirmed !== 'boolean' || (instance.service_id !== 'messenger' && e.setup_confirmed) || (e.workspace_id !== null && (instance.service_id !== 'slack' || !/^T[A-Z0-9]{1,79}$/.test(e.workspace_id)))) throw new Error('invalid_service_state');
+    seen.add(e.instance_id);
+  }
+  return value;
+}
+function workspaceID(value) {
+  const url = httpsURL(value);
+  if (!url || url.hostname !== 'app.slack.com' || url.port) return null;
+  return /^\/client\/(T[A-Z0-9]{1,79})(?:\/|$)/.exec(url.pathname)?.[1] || null;
+}
+class ServiceState {
+  constructor(file = null) {
+    this.file = file;
+    try { this.value = file ? validateServiceState(readJSON(file)) : initialServiceState(); }
+    catch (error) { if (error.code !== 'ENOENT') throw new Error('service_state_recovery_required', { cause: error }); this.value = initialServiceState(); }
+  }
+  entry(id) { const value = this.value.entries.find(e => e.instance_id === id); if (!value) throw new Error('unknown_instance'); return { ...value }; }
+  update(id, patch) {
+    const old = this.entry(id); const next = { ...old, ...patch };
+    if (JSON.stringify(old) === JSON.stringify(next)) return old;
+    const state = validateServiceState({ schema_version: 1, entries: this.value.entries.map(e => e.instance_id === id ? next : e) });
+    if (this.file) writeJSON(this.file, state); this.value = state; return { ...next };
+  }
+  confirm(instance) { if (instance.service_id !== 'messenger') throw new Error('invalid_setup'); return this.update(instance.id, { setup_confirmed: true }); }
+  resetSetup(instance) { if (instance.service_id !== 'messenger') throw new Error('invalid_setup'); return this.update(instance.id, { setup_confirmed: false }); }
+  observe(instance, url) {
+    if (instance.service_id === 'slack') { const id = workspaceID(url); if (id) this.update(instance.id, { workspace_id: id }); }
+    // A feed/notification navigation is not evidence of session expiry.
+    if (instance.service_id === 'messenger' && routeStage('messenger', url) === 'auth') this.resetSetup(instance);
+  }
+  startURL(instance, explicitSlack = null) {
+    const state = this.entry(instance.id);
+    if (instance.service_id === 'messenger' && !state.setup_confirmed) return 'https://www.facebook.com/';
+    if (instance.service_id === 'slack') return explicitSlack || (state.workspace_id ? `https://app.slack.com/client/${state.workspace_id}` : 'https://app.slack.com/client');
+    return service(instance.service_id).url;
+  }
+}
+module.exports = { ServiceState, initialServiceState, validateServiceState, workspaceID };

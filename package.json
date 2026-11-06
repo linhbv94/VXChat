@@ -1,0 +1,33 @@
+{
+  "name": "vxchat",
+  "productName": "VXChat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Messaging services and AI conversations in one desktop app",
+  "main": "src/main/app.js",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "check": "node scripts/check_source.js",
+    "test": "node --test tests/*.test.js",
+    "test:electron": "node scripts/run_electron_fixture.js electron_lifecycle",
+    "test:shell": "node scripts/run_electron_fixture.js electron_shell",
+    "package": "node scripts/package_release.js",
+    "test:updates": "node --test tests/update_controller.test.js",
+    "test:updates:ui": "node scripts/run_electron_fixture.js electron_updates"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "26.18.0"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.11"
+  },
+  "author": "Bùi Việt Linh",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/linhbv94/VXChat.git"
+  }
+}

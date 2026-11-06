@@ -1,0 +1,41 @@
+/* Generated from titlebar_contract.json v1.0.0; do not edit numbers here. */
+:root {
+  --vx-tb-height: 32px;
+  --vx-tb-border-bottom: 1px;
+  --vx-tb-glyph-x: 82px;
+  --vx-tb-glyph-size: 16px;
+  --vx-tb-glyph-name-gap: 6px;
+  --vx-tb-name-font-size: 12px;
+  --vx-tb-name-line-height: 16px;
+  --vx-tb-brand-actions-gap: 12px;
+  --vx-tb-action-gap: 8px;
+  --vx-tb-right-inset: 12px;
+  --vx-tb-settings-box: 28px;
+  --vx-tb-settings-glyph-size: 16px;
+  --vx-tb-settings-radius: 6px;
+  --vx-tb-name-weight: 600;
+  --vx-tb-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+/* macOS standard_32 only. Native traffic lights are outside the DOM. */
+[data-vx-titlebar="standard_32"] {
+  box-sizing: border-box; height: var(--vx-tb-height); min-height: var(--vx-tb-height);
+  flex-shrink: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: var(--vx-tb-brand-actions-gap); padding: 0 var(--vx-tb-right-inset) 0 var(--vx-tb-glyph-x);
+  border: 0; border-bottom: var(--vx-tb-border-bottom) solid var(--border-subtle, rgba(255,255,255,.08));
+  align-items: center; font-family: var(--vx-tb-font); -webkit-app-region: drag;
+}
+[data-vx-titlebar-brand] { display: flex; align-items: center; gap: var(--vx-tb-glyph-name-gap); min-width: 0; }
+[data-vx-titlebar-brand] > svg { width: var(--vx-tb-glyph-size); height: var(--vx-tb-glyph-size); flex-shrink: 0; stroke-width: 2; }
+[data-vx-titlebar-name] { font: var(--vx-tb-name-weight) var(--vx-tb-name-font-size)/var(--vx-tb-name-line-height) var(--vx-tb-font); letter-spacing: 0; white-space: nowrap; -webkit-font-smoothing: auto; }
+[data-vx-titlebar-actions] { display: flex; align-items: center; gap: var(--vx-tb-action-gap); min-width: 0; }
+[data-vx-titlebar-spacer] { flex: 1; min-width: 0; }
+[data-vx-titlebar-settings] {
+  box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+  width: var(--vx-tb-settings-box); height: var(--vx-tb-settings-box); flex: 0 0 var(--vx-tb-settings-box);
+  padding: 0; border: 1px solid transparent; border-radius: var(--vx-tb-settings-radius);
+  background: transparent; color: var(--text-muted, #94a3b8); cursor: pointer; -webkit-app-region: no-drag;
+}
+[data-vx-titlebar-settings] > svg { width: var(--vx-tb-settings-glyph-size); height: var(--vx-tb-settings-glyph-size); stroke-width: 2; }
+[data-vx-titlebar-settings]:hover { background: rgba(255,255,255,.08); color: var(--text-primary, #f8fafc); }
+[data-vx-titlebar-settings]:focus-visible { outline: 2px solid var(--accent-primary, #06b6d4); outline-offset: -2px; }
+[data-vx-titlebar-actions] button, [data-vx-titlebar-actions] input, [data-vx-titlebar-actions] select { -webkit-app-region: no-drag; }

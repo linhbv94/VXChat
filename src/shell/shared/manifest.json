@@ -1,0 +1,9 @@
+{
+  "component_version": "1.0.0",
+  "copy_contract_version": "1.1.0",
+  "files": {
+    "settings_ui.js": "f8654c57206345c8d7770e23b7448a31868209279cb678b84bf19258d7f123e1",
+    "settings_ui.css": "c6eb59110d54b9c5e7e21d51ce58262390b93f1c7f569913d25da36f35ee419f",
+    "settings_copy.js": "e9b8cc8fdb321f9f3992f9136926c4e79bdeb6117f716c2a698a9a7a98c7501f"
+  }
+}

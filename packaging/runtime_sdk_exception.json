@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "app": "VXChat",
+  "app_version": "1.0.0",
+  "electron_version": "45.2.3",
+  "runtime_sdk": "26.5",
+  "workspace_sdk": "27.0",
+  "approved_by": "user",
+  "approved_at": "2026-11-06",
+  "approval": "Cho VXChat v1.0.0 dùng SDK 26.5",
+  "scope": "VXChat 1.0.0 and isolated non-published updater QA using this exact runtime; no suite-wide change"
+}

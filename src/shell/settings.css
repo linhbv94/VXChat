@@ -1,0 +1,23 @@
+/* Native window adapter. Canonical presentation is vendored unchanged in shared/. */
+html, body {margin:0;padding:0;width:100%;height:100%;overflow:hidden;user-select:none;}
+.vx_settings_ui.settings-native-window {position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;border:0;border-radius:0;box-shadow:none;display:flex;flex-direction:column;}
+.is-hidden {display:none!important;}
+.workspace-input {display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:8px;border:1px solid var(--vxs_border);border-radius:6px;color:var(--vxs_text);background:var(--vxs_bg);}
+.permission-row {display:flex;gap:12px;align-items:center;margin-top:12px;overflow-wrap:anywhere;}
+.permission-row span {flex:1;min-width:0;}
+.settings-status {color:#e87979;padding:0 16px;min-height:18px;}
+#panel-services button {padding:6px 10px;border:1px solid var(--vxs_border);border-radius:6px;background:var(--vxs_card);color:var(--vxs_text);cursor:pointer;}
+.settings-notes-list {margin:8px 0 0 0;padding-left:18px;color:var(--vxs_text_muted, #888);font-size:12px;line-height:1.5;}
+.settings-notes-list li {margin-bottom:6px;}
+.settings-notes-list strong {color:var(--vxs_text);}
+.shortcuts-desc {margin:4px 0 8px 0;color:var(--vxs_text_muted, #888);font-size:12px;}
+.shortcuts-table {width:100%;border-collapse:collapse;margin-top:6px;font-size:12px;}
+.shortcuts-table th, .shortcuts-table td {padding:6px 10px;text-align:left;border-bottom:1px solid var(--vxs_border);vertical-align:middle;}
+.shortcuts-table th {color:var(--vxs_text_muted, #888);font-weight:600;font-size:11px;}
+.shortcuts-table td:first-child {white-space:nowrap;width:130px;}
+.shortcuts-table td:last-child {color:var(--vxs_text_muted, #888);font-size:11px;}
+.shortcuts-table kbd {display:inline-block;padding:2px 6px;font-family:inherit;font-size:11px;line-height:1.2;color:var(--vxs_text);background:var(--vxs_card, rgba(255, 255, 255, 0.06));border:1px solid var(--vxs_border);border-radius:4px;box-shadow:0 1px 0 rgba(0, 0, 0, 0.2);}
+.browser-preference-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0; }
+.browser-preference-row select { color:inherit; background:var(--vx-settings-surface, transparent); border:1px solid currentColor; border-radius:6px; padding:4px 8px; }
+.browser-preference-row:has(input[type="checkbox"]) { justify-content:flex-start; }
+#download-directory { overflow-wrap:anywhere; }

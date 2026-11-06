@@ -1,0 +1,9 @@
+{
+  "engine": "Swift_AppKit_WKWebView",
+  "status": "frozen_reference_not_active",
+  "frozen_on": "2026-11-05",
+  "source_base_commit": "bb5b970e92fe9d397cee40240c36cd10a168fb92",
+  "includes_uncommitted_anti_work": true,
+  "active_runtime_import_allowed": false,
+  "deletion_gate": "See private VXChat scope/handoff; retain until P0 QA, user acceptance and authorized retirement."
+}

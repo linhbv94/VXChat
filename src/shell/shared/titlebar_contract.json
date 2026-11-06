@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "contract_version": "1.0.0",
+  "sdk_baseline": "27.0",
+  "units": {"frontend": "css_px_at_zoom_1", "native": "logical_points", "retina_scale_is_not_layout_scale": true},
+  "standard_32": {
+    "height": 32,
+    "border_bottom": 1,
+    "center_y": 15.5,
+    "traffic_center_x": [14, 34, 54],
+    "traffic_center_step": 20,
+    "observed_bezel_diameter": 14,
+    "observed_bezel_profile": "macOS26.7_SDK27.0",
+    "glyph_x": 82,
+    "glyph_size": 16,
+    "glyph_stroke_width": 2,
+    "glyph_name_gap": 6,
+    "name_font_size": 12,
+    "name_font_weight": 600,
+    "name_line_height": 16,
+    "name_letter_spacing": 0,
+    "brand_actions_gap": 12,
+    "action_gap": 8,
+    "right_inset": 12,
+    "settings_box": 28,
+    "settings_glyph_size": 16,
+    "settings_radius": 6,
+    "tolerance": 0.5
+  }
+}

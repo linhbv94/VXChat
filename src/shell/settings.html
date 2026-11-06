@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VXChat Settings</title>
+  <link rel="stylesheet" href="shared/settings_ui.css">
+  <link rel="stylesheet" href="settings.css">
+  <link rel="stylesheet" href="update_view.css">
+</head>
+<body class="dark">
+  <div class="vx_settings_ui settings-native-window" id="settings-root">
+    <div class="vx_settings_layout">
+      <nav class="vx_settings_nav" aria-label="Cài đặt / Settings">
+        <button class="vx_settings_tab is_active" data-tab="general" type="button">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/></svg>
+          <span id="tab-nav-general">Chung</span>
+        </button>
+        <button class="vx_settings_tab" data-tab="services" type="button"><span id="tab-nav-services">Dịch vụ</span></button>
+        <button class="vx_settings_tab" data-tab="shortcuts" type="button">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M14 3H2a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM2 4h12a1 1 0 0 1 1 1v1H1V5a1 1 0 0 1 1-1zm13 7a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7h14v4zm-9-2a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3A.5.5 0 0 1 6 9zm-3 0a.5.5 0 0 1 .5-.5h.01a.5.5 0 0 1 0 1H3.5A.5.5 0 0 1 3 9zm8 0a.5.5 0 0 1 .5-.5h.01a.5.5 0 0 1 0 1H11.5a.5.5 0 0 1-.5-.5z"/></svg>
+          <span id="tab-nav-shortcuts">Phím tắt</span>
+        </button>
+        <button class="vx_settings_tab" data-tab="updates" type="button">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.418A6 6 0 1 1 8 2v1z"/><path d="M8 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1h2.293L8 1V.5A.5.5 0 0 1 8 0z"/></svg>
+          <span id="tab-nav-updates">Cập nhật</span>
+        </button>
+        <button class="vx_settings_tab" data-tab="about" type="button">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/></svg>
+          <span id="tab-nav-about">Giới thiệu</span>
+        </button>
+        <div class="vx_settings_divider"></div>
+        <button class="vx_settings_tab" data-tab="support" type="button">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/></svg>
+          <span id="tab-nav-support">Ủng hộ tác giả</span>
+        </button>
+      </nav>
+
+      <main class="vx_settings_body">
+        <section id="panel-general" class="vx_settings_stack"></section>
+
+        <section id="panel-services" class="vx_settings_stack is-hidden">
+          <div class="vx_settings_card" id="browser-controls"></div>
+          <div class="vx_settings_card">
+            <h3 class="vx_settings_heading">Slack</h3>
+            <label id="workspace-label" for="workspace-url">Link workspace (tùy chọn)</label>
+            <input id="workspace-url" class="workspace-input" type="text" maxlength="2048" placeholder="https://your-team.slack.com" autocomplete="off" spellcheck="false">
+            <p id="workspace-hint">Để trống để tự mở lại workspace gần nhất. Link workspace/client tùy chọn ghi đè điểm mở ban đầu.</p>
+            <button id="workspace-save" type="button">Lưu</button> <button id="workspace-open" type="button">Mở Slack</button>
+          </div>
+          <div class="vx_settings_card"><h3 id="permissions-title" class="vx_settings_heading">Quyền website</h3><p id="permissions-hint">Thu hồi áp dụng cho yêu cầu mới. Đóng cuộc gọi/chia sẻ đang chạy trước khi tải lại trang.</p><div id="permissions-list"></div></div>
+          <div class="vx_settings_card">
+            <h3 id="accounts-title" class="vx_settings_heading">Tài khoản &amp; Đăng xuất</h3>
+            <p id="accounts-desc">Mỗi dịch vụ duy trì phiên đăng nhập riêng biệt trong vùng lưu trữ an toàn:</p>
+            <ul class="settings-notes-list">
+              <li id="accounts-item-messenger"><strong>Messenger:</strong> Dùng nút "Mở Facebook đầy đủ" trên thanh tiêu đề để quản lý hoặc đăng xuất tài khoản trên Facebook web.</li>
+              <li id="accounts-item-web"><strong>Slack / ChatGPT / Zalo:</strong> Đăng xuất hoặc chuyển workspace/tài khoản trực tiếp qua menu cá nhân trong giao diện của từng dịch vụ.</li>
+            </ul>
+          </div>
+        </section>
+
+        <!-- Shortcuts Panel -->
+        <section id="panel-shortcuts" class="vx_settings_stack is-hidden">
+          <div class="vx_settings_card">
+            <h3 id="shortcuts-app-title" class="vx_settings_heading">Cửa sổ &amp; Toàn ứng dụng</h3>
+            <p id="shortcuts-app-desc" class="shortcuts-desc">Các phím tắt hoạt động trên toàn cửa sổ và chuyển vùng tự động:</p>
+            <table class="shortcuts-table" aria-describedby="shortcuts-app-title">
+              <thead>
+                <tr>
+                  <th id="th-app-key">Phím</th>
+                  <th id="th-app-action">Thao tác</th>
+                  <th id="th-app-context">Ngữ cảnh</th>
+                </tr>
+              </thead>
+              <tbody id="shortcuts-app-rows"></tbody>
+            </table>
+          </div>
+          <div class="vx_settings_card">
+            <h3 id="shortcuts-tabstrip-title" class="vx_settings_heading">Thanh tab</h3>
+            <p id="shortcuts-tabstrip-desc" class="shortcuts-desc">Chỉ áp dụng khi thanh tab đang được chọn (focus); không can thiệp vào khung soạn tin nhắn:</p>
+            <table class="shortcuts-table" aria-describedby="shortcuts-tabstrip-title">
+              <thead>
+                <tr>
+                  <th id="th-tab-key">Phím</th>
+                  <th id="th-tab-action">Thao tác</th>
+                  <th id="th-tab-context">Ngữ cảnh</th>
+                </tr>
+              </thead>
+              <tbody id="shortcuts-tabstrip-rows"></tbody>
+            </table>
+          </div>
+        </section>
+        <!-- Updates Panel -->
+        <section id="panel-updates" class="vx_settings_stack is-hidden">
+          <div class="vx_settings_banner">
+            <div>
+              <h3 id="update-banner-title">VXChat</h3>
+              <p id="update-banner-desc">Kiểm tra phiên bản mới nhất và tải bản cập nhật tự động từ GitHub Releases.</p>
+            </div>
+          </div>
+          <div class="vx_settings_card">
+            <h4 class="vx_settings_heading" id="update-status-title">Trạng thái phát hành</h4>
+            <p id="update-status-text">Đang đọc trạng thái cập nhật…</p>
+            <div id="updates-controller" class="vx-updates" role="status" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section id="panel-about" class="vx_settings_stack is-hidden"></section>
+        <section id="panel-support" class="vx_settings_stack is-hidden"></section>
+      </main>
+    </div>
+
+    <p id="settings-status" class="settings-status" role="status"></p>
+    <footer class="vx_settings_footer">
+      <button id="btn-reset" class="vx_settings_reset" type="button">
+        <svg viewBox="0 0 16 16" width="13" height="13" fill="currentColor"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.418A6 6 0 1 1 8 2v1z"/><path d="M8 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1h2.293L8 1V.5A.5.5 0 0 1 8 0z"/></svg>
+        <span id="btn-reset-text">Khôi phục mặc định</span>
+      </button>
+      <button id="btn-close" class="vx_settings_primary" type="button">
+        <span id="btn-close-text">Đóng</span>
+      </button>
+    </footer>
+  </div>
+
+  <script src="shared/settings_copy.js"></script>
+  <script src="shared/settings_ui.js"></script>
+  <script src="settings.js"></script>
+  <script src="update_view.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+name: VXChat release candidate
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        type: choice
+        options: [macos, windows]
+        default: macos
+        description: Platform to build and verify
+      create_draft:
+        type: boolean
+        default: false
+        description: Upload verified outputs to a draft release (never publish)
+permissions:
+  contents: read
+concurrency:
+  group: vxchat_release_${{ github.event.inputs.platform }}
+  cancel-in-progress: false
+jobs:
+  candidate:
+    if: github.event.repository.private == false
+    runs-on: ${{ inputs.platform == 'macos' && 'macos-latest' || 'windows-latest' }}
+    permissions:
+      contents: write
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run test:electron
+      - run: npm run test:shell
+      - run: npm run test:updates:ui
+      - name: Select exact macOS SDK 27.0
+        if: inputs.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          selected=''
+          for candidate in /Applications/Xcode*.app/Contents/Developer; do
+            if [ "$(DEVELOPER_DIR="$candidate" xcrun --sdk macosx --show-sdk-version 2>/dev/null || true)" = '27.0' ]; then
+              selected="$candidate"
+              break
+            fi
+          done
+          test -n "$selected" || { echo 'SDK 27.0 unavailable; no fallback'; exit 1; }
+          echo "DEVELOPER_DIR=$selected" >> "$GITHUB_ENV"
+      - name: Package signed macOS releases
+        if: inputs.platform == 'macos'
+        run: npm run package -- darwin all
+        env:
+          VXCHAT_SIGNING_KEY_PEM: ${{ secrets.MAC_VXCHAT_PRIVATE_KEY_PEM }}
+      - name: Verify shipped ZIP contents
+        if: inputs.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./package.json").version')
+          node scripts/verify_release_assets.js "dist/vxchat_${version}_macos_arm64.zip" arm64
+          node scripts/verify_release_assets.js "dist/vxchat_${version}_macos_x64.zip" x64
+      - name: Package signed Windows release
+        if: inputs.platform == 'windows'
+        run: npm run package -- win32 x64
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      - name: Verify Windows signatures and metadata
+        if: inputs.platform == 'windows'
+        shell: pwsh
+        run: ./scripts/verify_windows_assets.ps1
+      - name: Upload to draft only
+        if: inputs.create_draft
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(node -p 'require("./package.json").version')
+          if ! gh release view "v${version}" >/dev/null 2>&1; then
+            gh release create "v${version}" --draft --target "$GITHUB_SHA" --title "VXChat ${version}" --notes-file release_notes/1_0_0.md
+          fi
+          test "$(gh release view "v${version}" --json isDraft --jq .isDraft)" = true
+          shopt -s nullglob
+          files=(dist/*.dmg dist/*.zip dist/*.exe dist/*.blockmap dist/latest*.yml)
+          test ${#files[@]} -gt 0
+          gh release upload "v${version}" "${files[@]}"

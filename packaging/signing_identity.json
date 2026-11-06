@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "mode": "self_signed",
+  "common_name": "VXChat Code Signing",
+  "app_id": "com.vxutilities.vxmesschat",
+  "certificate_sha1": "167206BD35F12DD70048DCB1043068809894DAF5",
+  "certificate_sha256": "09067d95b00b4cd06f1f899e0aa6bdfb8fb240ed4aa02e05bb11d6769053c051",
+  "notarized": false,
+  "user_authorized_at": "2026-11-06"
+}

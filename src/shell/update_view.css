@@ -1,0 +1,13 @@
+.update-notice { margin:0; padding:8px; background:transparent; overflow:hidden; }
+.vx-updates { --update-bg:#fff; --update-fg:#1f2937; --update-border:#679cf580; color:var(--update-fg); background:var(--update-bg); font:12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; border:1px solid var(--update-border); border-radius:12px; padding:16px; box-sizing:border-box; position:relative; }
+.vx-updates[data-theme="dark"] { --update-bg:#1b202b; --update-fg:#edf0f5; }
+.vx-updates[data-theme="black"] { --update-bg:#000; --update-fg:#edf0f5; }
+.update-notice .vx-updates { width:100%; box-shadow:0 3px 8px #0005; }
+.vx-updates h3 { margin:0 24px 8px 0; font-size:13px; }
+.vx-updates p { margin:6px 0 12px; line-height:1.4; }
+.vx-updates button { border:1px solid var(--update-border); border-radius:6px; padding:7px 10px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+.vx-updates button.primary { background:#407de8; color:#fff; font-weight:600; }
+.vx-updates button:disabled { opacity:.6; cursor:default; }
+.vx-updates button:focus-visible { outline:2px solid #679cf5; outline-offset:2px; }
+.vx-updates .update-dismiss { position:absolute; right:10px; top:8px; padding:3px 7px; font-size:16px; border:0; }
+.vx-updates progress { display:block; width:100%; height:5px; margin:10px 0; accent-color:#679cf5; }

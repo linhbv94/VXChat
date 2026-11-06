@@ -1,0 +1,11 @@
+body {overflow:auto;box-sizing:border-box;padding:16px;user-select:text;}
+.download-header {display:flex;gap:8px;align-items:center;position:sticky;top:0;background:var(--bg);padding-bottom:12px;}
+h1 {font-size:18px;margin:0;flex:1;}
+button {background:var(--tab-active-bg);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;}
+button:focus-visible {outline:2px solid var(--accent);}
+.download {padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;}
+.download strong {display:block;overflow-wrap:anywhere;}
+.download p {color:var(--fg-muted);margin:8px 0;}
+.download button {margin-right:8px;}
+progress {width:100%;accent-color:var(--accent);}
+#error {color:var(--danger);min-height:18px;}
