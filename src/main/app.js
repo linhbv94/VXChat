@@ -14,6 +14,7 @@ const { PermissionStore } = require('../core/permission_store');
 const { fingerprint, backupAndReset } = require('../core/atomic_json');
 const { SERVICES } = require('../core/services');
 const { TabEngine } = require('../core/tab_engine');
+const { ProfileStore, defaultProfiles } = require('../core/profile_store');
 const { SessionPolicy } = require('./session_policy');
 const { ContentOwner } = require('./content_owner');
 const { DownloadRegistry } = require('./download_registry');
@@ -36,7 +37,7 @@ if (qaProfile) {
   app.setPath('userData', qaProfile);
 } else app.setPath('userData', path.join(app.getPath('appData'), 'VXChat', 'chromium_v2'));
 let window = null; let engine = null; let preferences; let downloads; let ipc; let windowState = null;
-let quitting = false; let quitPending = false; let chromeHeight = 68;
+let quitting = false; let quitPending = false; let chromeHeight = 68; let contentTop = 68;
 let updates = null; let updateNotice = null;
 let downloadPanel = null;
 const secondary = new Map();
@@ -53,11 +54,17 @@ function localView(file) {
   return view;
 }
 function dismissDownloadPanel(event,input){
-  if(input.type==='keyDown'&&input.key==='Escape'&&downloadPanel?.attached){downloadPanel.hide();event.preventDefault();}
+  if(input.type==='keyDown'&&input.key==='Escape'){
+    if(downloadPanel?.attached){downloadPanel.hide();event.preventDefault();}
+    ipc?.broadcast('dismiss',{});
+  }
 }
-function hideDownloadPanel(){downloadPanel?.hide();}
+function hideDownloadPanel(){downloadPanel?.hide();ipc?.broadcast('dismiss',{});}
 function dismissOnContentInput(_event,input){
-  if(downloadPanel?.attached&&['mouseDown','gestureTapDown','mouseWheel'].includes(input?.type))downloadPanel.hide();
+  if(['mouseDown','gestureTapDown','mouseWheel'].includes(input?.type)){
+    if(downloadPanel?.attached)downloadPanel.hide();
+    ipc?.broadcast('dismiss',{});
+  }
 }
 function openUtility(role) {
   const existing = secondary.get(role);
@@ -114,6 +121,8 @@ async function createWindow() {
   const serviceState = await recoverable(serviceFile, () => new ServiceState(serviceFile), initialServiceState); if (!serviceState) return;
   const stateFile = path.join(root, 'tabs_state_v2.json');
   const store = await recoverable(stateFile, () => { const value = new StateStore(stateFile); value.load(); return value; }, initialState); if (!store) return;
+  const profileFile = path.join(root, 'profiles_v1.json');
+  const profileStore = await recoverable(profileFile, () => new ProfileStore(profileFile), () => ({ schema_version: 1, profiles: defaultProfiles() })); if (!profileStore) return;
   windowState = new WindowStateStore(path.join(root, 'window_state_v1.json'));
   const initialWindow = windowState.restore(electron.screen);
   window = new BaseWindow({ ...(initialWindow.x !== undefined ? { x: initialWindow.x, y: initialWindow.y } : {}), width: initialWindow.width, height: initialWindow.height, minWidth: 800, minHeight: 600, title: 'VXChat', backgroundColor: '#141821', ...primaryWindowOptions(process.platform), show: !qaProfile });
@@ -121,12 +130,12 @@ async function createWindow() {
     if (initialWindow.full_screen) window.setFullScreen?.(true);
     else if (initialWindow.maximized) window.maximize?.();
   }
-  const shellFile = uiFile('index'); const shellView = localView(shellFile); window.contentView.addChildView(shellView);
+  const shellFile = uiFile('index'); const shellView = localView(shellFile); shellView.setBackgroundColor?.('#00000000'); window.contentView.addChildView(shellView);
   const owners = new Map(); const changed = () => { if (engine) ipc?.broadcast('state', engine.snapshot()); updateNotice?.resize(); downloadPanel?.resize(); };
-  const completionTracker=createDownloadFeedbackTracker({onCue:()=>downloadPanel?.show()});completionTracker.update([]);
+  const completionTracker=createDownloadFeedbackTracker({onCue:()=>{ if (contentTop === 68) downloadPanel?.show(); }});completionTracker.update([]);
   downloads = new DownloadRegistry({ shell: electron.shell, directory: app.getPath('downloads'), getPreferences: () => preferences.snapshot(), changed: () => {const records=downloads.snapshot();ipc?.broadcast('downloads',records);completionTracker.update(records);} });
   const policy = new SessionPolicy({ session, dialog, window, resolveOwner: wc => owners.get(wc), permissionStore, downloads, systemPreferences: electron.systemPreferences, getLanguage, contentsFromFrame: frame => electron.webContents.fromFrame(frame), selectDisplaySource: createDisplayPicker({ desktopCapturer: electron.desktopCapturer, Menu, window, getLanguage }) });
-  engine = new TabEngine({ store, onChange: changed, createOwner: args => new ContentOwner({ ...args, electron, window, sessionPolicy: policy, register: (wc, owner) => {owners.set(wc, owner);wc.on('before-input-event',dismissDownloadPanel);wc.on('input-event',dismissOnContentInput);wc.on('context-menu',hideDownloadPanel);wc.on('focus',hideDownloadPanel);}, unregister: wc => {owners.delete(wc);wc.removeListener('before-input-event',dismissDownloadPanel);wc.removeListener('input-event',dismissOnContentInput);wc.removeListener('context-menu',hideDownloadPanel);wc.removeListener('focus',hideDownloadPanel);}, changed, getLanguage, serviceState, getZoom: id => preferences.snapshot().zoom_levels[id] || 1, getChromeHeight: () => chromeHeight, getStartURL: id => id === 'slack' ? preferences.snapshot().slack_workspace_url : null }) });
+  engine = new TabEngine({ store, profileStore, onChange: changed, createOwner: args => new ContentOwner({ ...args, electron, window, sessionPolicy: policy, register: (wc, owner) => {owners.set(wc, owner);wc.on('before-input-event',dismissDownloadPanel);wc.on('input-event',dismissOnContentInput);wc.on('context-menu',hideDownloadPanel);wc.on('focus',hideDownloadPanel);}, unregister: wc => {owners.delete(wc);wc.removeListener('before-input-event',dismissDownloadPanel);wc.removeListener('input-event',dismissOnContentInput);wc.removeListener('context-menu',hideDownloadPanel);wc.removeListener('focus',hideDownloadPanel);}, changed, getLanguage, serviceState, getZoom: id => { const z = preferences.snapshot().zoom_levels; const inst = engine?.state?.instances?.find(i => i.id === id); return z[id] || (inst && z[`default_${inst.service_id}`]) || 1; }, getChromeHeight: () => contentTop, getStartURL: id => id === 'slack' ? preferences.snapshot().slack_workspace_url : null }) });
   let boundsTimer = null;
   const scheduleBoundsSave = () => {
     if (boundsTimer) clearTimeout(boundsTimer);
@@ -182,12 +191,17 @@ async function createWindow() {
       case 'permission_revoke': permissionStore.revoke(command.id); return { permissions: permissionStore.snapshot() };
       case 'slack_open': { const id = await engine.add('slack'); await engine.home(id); window.show(); window.focus(); return {}; }
       case 'app_menu': downloadPanel?.hide(); Menu.getApplicationMenu()?.popup({ window }); return {};
-      case 'layout': chromeHeight = command.height; resize(); return {};
+      case 'layout': {
+        chromeHeight = command.height;
+        contentTop = command.content_top || (command.height <= 110 ? command.height : 68);
+        resize();
+        return {};
+      }
       default: throw new Error('invalid_command');
     }
   } });
   downloadPanel=new DownloadPanel({window,createView:localView,file:uiFile('downloads_panel'),ipc});
-  window.on('blur',()=>downloadPanel?.hide());
+  window.on('blur',hideDownloadPanel);
   updates = createUpdates({app,nativeUpdater:electron.autoUpdater,releaseQA,receiptFile:path.join(root,'update_receipt_v1.json'),changed:state => {ipc.broadcast('updates',state); updateNotice?.sync(state);},canRestart:() => engine.enqueue(async () => { for (const owner of engine.owners.values()) if (!await owner.confirmClose()) return false; return true; }),prepareQuit:() => {quitting = true;},undoPrepareQuit:() => {quitting = false;} });
   // Dev fixtures have no update notice WebContents and never contact Releases.
   if (app.isPackaged) { const file = uiFile('update_notice'); updateNotice = new UpdateNotice({window,view:localView(file),file,ipc}); }

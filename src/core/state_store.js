@@ -1,7 +1,7 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const { service, defaultInstances } = require('./services');
+const { service, SERVICES, defaultInstances } = require('./services');
 const { readJSON, writeJSON, MAX_BYTES } = require('./atomic_json');
 
 function exactKeys(object, keys) {
@@ -12,12 +12,34 @@ function validLabel(value) { return typeof value === 'string' && value.length > 
 function validateState(state) {
   if (!exactKeys(state, ['schema_version', 'instances', 'tabs', 'active_tab_id']) || state.schema_version !== 2 || !Array.isArray(state.instances) || !Array.isArray(state.tabs)) throw new Error('invalid_state');
   const expected = defaultInstances();
-  if (state.instances.length !== expected.length) throw new Error('invalid_instances');
-  for (const instance of state.instances) {
-    const canonical = expected.find(i => i.id === instance.id);
-    if (!canonical || !exactKeys(instance, ['id', 'service_id', 'label', 'partition']) || !validLabel(instance.label) || canonical.service_id !== instance.service_id || canonical.partition !== instance.partition) throw new Error('invalid_instance');
+  if (state.instances.length < expected.length) throw new Error('invalid_instances');
+  for (const def of expected) {
+    const canonical = state.instances.find(i => i.id === def.id);
+    if (!canonical || canonical.service_id !== def.service_id || canonical.partition !== def.partition) throw new Error('missing_default_instance');
   }
-  if (new Set(state.instances.map(i => i.id)).size !== expected.length) throw new Error('duplicate_instance');
+  for (const instance of state.instances) {
+    if (!instance || typeof instance !== 'object' || Array.isArray(instance)) throw new Error('invalid_instance');
+    if (!validID(instance.id) || !validID(instance.service_id) || !SERVICES[instance.service_id] || !validLabel(instance.label)) throw new Error('invalid_instance');
+    if (typeof instance.partition !== 'string' || !instance.partition.startsWith('persist:service-')) throw new Error('invalid_instance');
+    const isGoogle = ['gmail', 'gemini', 'meet'].includes(instance.service_id);
+    if (isGoogle) {
+      if (instance.id === `default_${instance.service_id}`) {
+        if (instance.partition !== 'persist:service-google') throw new Error('invalid_instance');
+      } else {
+        if (!instance.partition.startsWith('persist:service-google-')) throw new Error('invalid_instance');
+      }
+    } else {
+      if (instance.id === `default_${instance.service_id}`) {
+        if (instance.partition !== `persist:service-${instance.service_id}`) throw new Error('invalid_instance');
+      } else {
+        if (!instance.partition.startsWith(`persist:service-${instance.service_id}-`)) throw new Error('invalid_instance');
+      }
+    }
+    if (instance.profile_id !== undefined && !validID(instance.profile_id)) throw new Error('invalid_profile_id');
+    if (instance.profile_label !== undefined && !validLabel(instance.profile_label)) throw new Error('invalid_profile_label');
+    if (instance.profile_color !== undefined && typeof instance.profile_color !== 'string') throw new Error('invalid_profile_color');
+  }
+  if (new Set(state.instances.map(i => i.id)).size !== state.instances.length) throw new Error('duplicate_instance');
   const ids = new Set();
   const count = new Map();
   for (const tab of state.tabs) {
@@ -39,9 +61,9 @@ function initialState() {
 }
 function migrateState(state) {
   const expected = defaultInstances();
-  if (state?.schema_version === 2 && Array.isArray(state.instances) && state.instances.length > 0 && state.instances.length < expected.length) {
+  if (state?.schema_version === 2 && Array.isArray(state.instances)) {
     const ids = new Set(state.instances.map(i => i?.id));
-    if (ids.size === state.instances.length && state.instances.every(i => expected.some(e => e.id === i?.id))) {
+    if (expected.some(e => !ids.has(e.id))) {
       return { ...state, instances: [...state.instances, ...expected.filter(e => !ids.has(e.id))] };
     }
   }

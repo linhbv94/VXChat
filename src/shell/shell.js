@@ -43,6 +43,20 @@ const STRINGS = {
 
 const tabsList = document.getElementById('tabs');
 const tabsWrapper = document.getElementById('tabs-wrapper');
+const tabsOverflowBtn = document.getElementById('tabs-overflow-btn');
+const tabsOverflowCount = document.getElementById('tabs-overflow-count');
+const tabsOverflowPanel = document.getElementById('tabs-overflow-panel');
+const servicePlusPanel = document.getElementById('service-plus-panel');
+const accountActionsPanel = document.getElementById('account-actions-panel');
+const profilePanel = document.getElementById('profile-panel');
+const profilePanelTitle = document.getElementById('profile-panel-title');
+const profileServiceId = document.getElementById('profile-service-id');
+const profileEditId = document.getElementById('profile-edit-id');
+const profileLabelInput = document.getElementById('profile-label-input');
+const profileColorPicker = document.getElementById('profile-color-picker');
+const profileSaveBtn = document.getElementById('profile-save-btn');
+const profileCancelBtn = document.getElementById('profile-cancel-btn');
+const profileCloseBtn = document.getElementById('profile-close-btn');
 const statusText = document.getElementById('status');
 const reloadBtn = document.getElementById('reload');
 const settingsBtn = document.getElementById('settings-btn');
@@ -53,7 +67,36 @@ let currentLang = 'vi';
 let draggedServiceId = null;
 let serviceOrder = ['messenger','zalo','slack','chatgpt','gmail','gemini','meet'];
 let hiddenServices = [];
-const PLACEHOLDER_PLUS = { messenger: 'Messenger', gmail: 'Gmail', gemini: 'Gemini', meet: 'Google Meet' };
+const ephemeralOpenServices = new Set();
+const PROFILE_COLORS = ['blue', 'emerald', 'amber', 'rose', 'violet', 'cyan', 'orange', 'pink'];
+let selectedProfileColor = 'blue';
+
+function initColorPicker() {
+  if (!profileColorPicker) return;
+  profileColorPicker.replaceChildren();
+  for (const color of PROFILE_COLORS) {
+    const swatch = document.createElement('button');
+    swatch.type = 'button';
+    swatch.className = 'color-swatch';
+    swatch.dataset.color = color;
+    swatch.title = color;
+    swatch.onclick = () => {
+      selectedProfileColor = color;
+      for (const s of profileColorPicker.children) {
+        s.classList.toggle('is-selected', s.dataset.color === color);
+      }
+    };
+    profileColorPicker.append(swatch);
+  }
+}
+
+function selectColorSwatch(color) {
+  selectedProfileColor = color || 'blue';
+  if (!profileColorPicker) return;
+  for (const s of profileColorPicker.children) {
+    s.classList.toggle('is-selected', s.dataset.color === selectedProfileColor);
+  }
+}
 
 function applyTheme(theme) {
   currentTheme = theme;
@@ -91,6 +134,17 @@ function updateStaticLabels() {
   const manage = document.getElementById('manage-services');
   manage.title = currentLang === 'en' ? 'Show or hide services' : 'Hiện hoặc ẩn dịch vụ';
   manage.setAttribute('aria-label', manage.title);
+  if (tabsOverflowBtn) {
+    const count = tabsOverflowCount?.textContent || '';
+    tabsOverflowBtn.title = currentLang === 'en'
+      ? `${count ? count + ' ' : ''}hidden overflow tabs`
+      : `${count ? count + ' ' : ''}tab bị khuất`;
+    tabsOverflowBtn.setAttribute('aria-label', tabsOverflowBtn.title);
+  }
+  if (profileLabelInput) profileLabelInput.placeholder = currentLang === 'en' ? 'Label: Work, Personal...' : 'Nhãn: Work, Cá nhân...';
+  if (profileCloseBtn) profileCloseBtn.title = currentLang === 'en' ? 'Close' : 'Đóng';
+  if (profileCancelBtn) profileCancelBtn.textContent = currentLang === 'en' ? 'Cancel' : 'Hủy';
+  if (profileSaveBtn) profileSaveBtn.textContent = currentLang === 'en' ? 'Save' : 'Lưu';
   renderServiceManager();
 }
 
@@ -136,85 +190,918 @@ function renderServiceManager() {
   }
   if (focused) panel.querySelector(`[data-visibility-id="${focused}"]`)?.focus();
 }
+function getUnopenedHiddenServices() {
+  if (!current) return [];
+  return serviceOrder.filter(id =>
+    hiddenServices.includes(id) &&
+    !ephemeralOpenServices.has(id)
+  );
+}
+
+let reportedHeight = 0;
+let reportedContentTop = 0;
+let layoutRaf = null;
+function syncShellLayout() {
+  if (layoutRaf) cancelAnimationFrame(layoutRaf);
+  layoutRaf = requestAnimationFrame(() => {
+    layoutRaf = null;
+    const chromeEl = document.getElementById('chrome');
+    if (!chromeEl) return;
+    const normalHeight = Math.ceil(chromeEl.getBoundingClientRect().height);
+    let maxBottom = normalHeight;
+    for (const panel of [tabsOverflowPanel, servicePlusPanel, accountActionsPanel]) {
+      if (panel && !panel.hidden) {
+        const r = panel.getBoundingClientRect();
+        if (r.bottom > maxBottom) {
+          maxBottom = Math.ceil(r.bottom + 12);
+        }
+      }
+    }
+    const height = Math.max(68, Math.min(520, maxBottom));
+    const contentTop = Math.max(68, Math.min(520, normalHeight));
+    if (height !== reportedHeight || contentTop !== reportedContentTop) {
+      reportedHeight = height;
+      reportedContentTop = contentTop;
+      void window.vxchat.command({ action: 'layout', height, content_top: contentTop });
+    }
+  });
+}
+
+function positionFloatingDropdown(dropdownEl, anchorEl) {
+  if (!dropdownEl) return;
+  const rect = anchorEl?.getBoundingClientRect?.();
+  if (!rect || (rect.width === 0 && rect.height === 0)) {
+    dropdownEl.style.top = '70px';
+    dropdownEl.style.left = '8px';
+    syncShellLayout();
+    return;
+  }
+  const top = Math.max(70, Math.round(rect.bottom + 4));
+  dropdownEl.style.top = `${top}px`;
+  const panelWidth = dropdownEl.offsetWidth || 220;
+  const maxLeft = Math.max(8, (window.innerWidth || 800) - panelWidth - 8);
+  const left = Math.max(8, Math.min(maxLeft, Math.round(rect.left)));
+  dropdownEl.style.left = `${left}px`;
+  syncShellLayout();
+}
+
+function quickOpenHiddenService(serviceId, instanceId = null) {
+  ephemeralOpenServices.add(serviceId);
+  if (tabsOverflowPanel) tabsOverflowPanel.hidden = true;
+  tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+  syncShellLayout();
+  const existing = current?.tabs?.find(t =>
+    instanceId ? t.instance_id === instanceId : t.service_id === serviceId
+  );
+  if (existing) {
+    render(current);
+    void command({ action: 'select', tab_id: existing.id });
+  } else if (instanceId) {
+    void command({ action: 'instance_open', instance_id: instanceId });
+  } else {
+    void command({ action: 'add', service_id: serviceId });
+  }
+}
+
+function formatMultiAccountLabel(serviceLabel, profileLabel, tabLabel = null) {
+  const base = profileLabel ? `${serviceLabel} (${profileLabel})` : serviceLabel;
+  if (!tabLabel || tabLabel === serviceLabel || tabLabel === `${serviceLabel} · ${profileLabel}`) {
+    return base;
+  }
+  if (tabLabel.startsWith(`${base}`)) {
+    return tabLabel;
+  }
+  const legacyPrefix = `${serviceLabel} · ${profileLabel}`;
+  if (tabLabel.startsWith(`${legacyPrefix} `)) {
+    return `${base}${tabLabel.slice(legacyPrefix.length)}`;
+  }
+  return base;
+}
+
+function renderTabsOverflowPanel() {
+  if (!current || !tabsOverflowPanel) return;
+  tabsOverflowPanel.replaceChildren();
+  const overflowedGroups = [...tabsList.querySelectorAll('.service-group.is-overflowed')];
+  const hiddenQuickOpenIds = getUnopenedHiddenServices();
+  if (!overflowedGroups.length && !hiddenQuickOpenIds.length) {
+    tabsOverflowPanel.hidden = true;
+    tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+    syncShellLayout();
+    return;
+  }
+
+  if (overflowedGroups.length) {
+    const header = document.createElement('p');
+    header.className = 'overflow-header';
+    header.textContent = currentLang === 'en'
+      ? 'Overflowed tabs'
+      : 'Tab bị khuất';
+    tabsOverflowPanel.append(header);
+
+    const container = document.createElement('div');
+    container.className = 'overflow-items';
+
+    for (const group of overflowedGroups) {
+      const serviceId = group.dataset.serviceId;
+      const definition = current.services?.find(s => s.id === serviceId);
+      const serviceLabel = definition ? definition.label : serviceId;
+      const tabs = current.tabs.filter(t => t.service_id === serviceId);
+      const instances = (current.instances || []).filter(i => i.service_id === serviceId);
+
+      if (tabs.length) {
+        for (const tab of tabs) {
+          const item = document.createElement('div');
+          item.className = 'overflow-item';
+          if (tab.id === current.active_tab_id) item.classList.add('is-active');
+          item.setAttribute('role', 'button');
+          item.tabIndex = 0;
+          const icon = createIcon(serviceId);
+          if (icon) item.append(icon);
+          const title = document.createElement('span');
+          title.textContent = instances.length >= 2
+            ? formatMultiAccountLabel(serviceLabel, tab.profile_label, tab.label)
+            : tab.label;
+          item.append(title);
+
+          item.onclick = () => {
+            tabsOverflowPanel.hidden = true;
+            tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+            syncShellLayout();
+            void command({ action: 'select', tab_id: tab.id });
+          };
+          item.onkeydown = event => {
+            if (['Enter', ' '].includes(event.key)) {
+              event.preventDefault();
+              item.click();
+            }
+          };
+
+          const close = document.createElement('button');
+          close.type = 'button';
+          close.className = 'overflow-item-close';
+          close.textContent = '×';
+          close.title = `${t('closeTab')} ${tab.label}`;
+          close.setAttribute('aria-label', close.title);
+          close.onclick = event => {
+            event.stopPropagation();
+            void command({ action: 'close', tab_id: tab.id });
+          };
+          item.append(close);
+          container.append(item);
+        }
+
+        for (const inst of instances) {
+          const hasOpenTab = tabs.some(t => t.instance_id === inst.id || t.id === inst.id);
+          if (!hasOpenTab) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'overflow-item';
+            const icon = createIcon(serviceId);
+            if (icon) item.append(icon);
+            const title = document.createElement('span');
+            title.textContent = instances.length >= 2
+              ? formatMultiAccountLabel(serviceLabel, inst.profile_label)
+              : serviceLabel;
+            item.append(title);
+            const status = document.createElement('span');
+            status.className = 'overflow-item-status';
+            status.textContent = currentLang === 'en' ? '(Not open)' : '(Chưa mở)';
+            item.append(status);
+            item.onclick = () => {
+              tabsOverflowPanel.hidden = true;
+              tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+              syncShellLayout();
+              void command({ action: 'instance_open', instance_id: inst.id });
+            };
+            container.append(item);
+          }
+        }
+      } else {
+        if (instances.length >= 2) {
+          for (const inst of instances) {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'overflow-item';
+            const icon = createIcon(serviceId);
+            if (icon) item.append(icon);
+            const title = document.createElement('span');
+            title.textContent = formatMultiAccountLabel(serviceLabel, inst.profile_label);
+            item.append(title);
+            const status = document.createElement('span');
+            status.className = 'overflow-item-status';
+            status.textContent = currentLang === 'en' ? '(Not open)' : '(Chưa mở)';
+            item.append(status);
+            item.onclick = () => {
+              tabsOverflowPanel.hidden = true;
+              tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+              syncShellLayout();
+              void command({ action: 'instance_open', instance_id: inst.id });
+            };
+            container.append(item);
+          }
+        } else {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'overflow-item';
+          const icon = createIcon(serviceId);
+          if (icon) item.append(icon);
+          const title = document.createElement('span');
+          title.textContent = serviceLabel;
+          item.append(title);
+          const status = document.createElement('span');
+          status.className = 'overflow-item-status';
+          status.textContent = currentLang === 'en' ? '(Not open)' : '(Chưa mở)';
+          item.append(status);
+
+          item.onclick = () => {
+            tabsOverflowPanel.hidden = true;
+            tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+            syncShellLayout();
+            void command({ action: 'add', service_id: serviceId });
+          };
+          container.append(item);
+        }
+      }
+    }
+    tabsOverflowPanel.append(container);
+  }
+
+  if (hiddenQuickOpenIds.length) {
+    if (overflowedGroups.length) {
+      const div = document.createElement('span');
+      div.className = 'panel-divider';
+      tabsOverflowPanel.append(div);
+    }
+    const hiddenHeader = document.createElement('p');
+    hiddenHeader.className = 'overflow-header';
+    hiddenHeader.textContent = currentLang === 'en'
+      ? 'Hidden services'
+      : 'Dịch vụ đang ẩn';
+    tabsOverflowPanel.append(hiddenHeader);
+
+    const hiddenContainer = document.createElement('div');
+    hiddenContainer.className = 'overflow-items';
+
+    for (const serviceId of hiddenQuickOpenIds) {
+      const definition = current.services?.find(s => s.id === serviceId);
+      const serviceLabel = definition ? definition.label : serviceId;
+      const instances = (current.instances || []).filter(i => i.service_id === serviceId);
+      if (instances.length >= 2) {
+        for (const inst of instances) {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'overflow-item is-hidden-service';
+          item.dataset.quickOpenService = serviceId;
+          item.dataset.instanceId = inst.id;
+          const icon = createIcon(serviceId);
+          if (icon) item.append(icon);
+          const title = document.createElement('span');
+          title.textContent = formatMultiAccountLabel(serviceLabel, inst.profile_label);
+          item.append(title);
+          item.onclick = () => {
+            quickOpenHiddenService(serviceId, inst.id);
+          };
+          hiddenContainer.append(item);
+        }
+      } else {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'overflow-item is-hidden-service';
+        item.dataset.quickOpenService = serviceId;
+        const icon = createIcon(serviceId);
+        if (icon) item.append(icon);
+        const title = document.createElement('span');
+        title.textContent = serviceLabel;
+        item.append(title);
+        item.onclick = () => {
+          quickOpenHiddenService(serviceId);
+        };
+        hiddenContainer.append(item);
+      }
+    }
+    tabsOverflowPanel.append(hiddenContainer);
+  }
+
+  positionFloatingDropdown(tabsOverflowPanel, tabsOverflowBtn);
+}
+
+let updatingOverflow = false;
+function updateOverflow() {
+  if (updatingOverflow || !current || !tabsWrapper || !tabsList) return;
+  updatingOverflow = true;
+  try {
+    const groups = [...tabsList.querySelectorAll('.service-group')];
+    const hiddenQuickOpenIds = getUnopenedHiddenServices();
+    if (!groups.length && !hiddenQuickOpenIds.length) {
+      if (tabsOverflowBtn) tabsOverflowBtn.hidden = true;
+      if (tabsOverflowPanel) tabsOverflowPanel.hidden = true;
+      syncShellLayout();
+      return;
+    }
+    const availWidth = tabsWrapper.clientWidth;
+    if (availWidth <= 0) return;
+
+    for (const g of groups) g.classList.remove('is-overflowed');
+    const widths = groups.map(g => g.offsetWidth);
+
+    const activeTabId = current.active_tab_id;
+    let activeIndex = -1;
+    if (activeTabId) {
+      activeIndex = groups.findIndex(g => g.querySelector(`[data-tab-id="${activeTabId}"]`));
+    }
+
+    const calc = window.vxchatTabOverflow?.calculateTabOverflow;
+    if (!calc) return;
+    const reservePill = hiddenQuickOpenIds.length > 0;
+    const { overflowCount, overflowIndices } = calc({
+      groupWidths: widths,
+      availableWidth: reservePill ? Math.max(0, availWidth - 45) : availWidth,
+      activeIndex,
+      pillWidth: reservePill ? 0 : 42,
+      gap: 3
+    });
+
+    const overflowSet = new Set(overflowIndices);
+    groups.forEach((group, index) => {
+      if (overflowSet.has(index)) {
+        group.classList.add('is-overflowed');
+      } else {
+        group.classList.remove('is-overflowed');
+      }
+    });
+
+    const overflowedPinnedCount = overflowIndices.reduce((sum, idx) => {
+      const group = groups[idx];
+      if (!group) return sum;
+      return sum + Math.max(1, group.querySelectorAll('.tab').length);
+    }, 0);
+    const totalPillCount = overflowCount + hiddenQuickOpenIds.length;
+    if (totalPillCount > 0 && tabsOverflowBtn) {
+      tabsOverflowBtn.hidden = false;
+      if (tabsOverflowCount) {
+        if (overflowedPinnedCount > 0) {
+          tabsOverflowCount.hidden = false;
+          tabsOverflowCount.textContent = String(overflowedPinnedCount);
+        } else {
+          tabsOverflowCount.hidden = true;
+          tabsOverflowCount.textContent = '';
+        }
+      }
+      tabsOverflowBtn.title = currentLang === 'en'
+        ? 'Quick-open hidden services / overflow tabs'
+        : 'Mở nhanh dịch vụ đang ẩn / tab bị khuất';
+      tabsOverflowBtn.setAttribute('aria-label', tabsOverflowBtn.title);
+      if (tabsOverflowPanel && !tabsOverflowPanel.hidden) {
+        renderTabsOverflowPanel();
+      }
+    } else if (tabsOverflowBtn) {
+      tabsOverflowBtn.hidden = true;
+      if (tabsOverflowCount) {
+        tabsOverflowCount.hidden = true;
+        tabsOverflowCount.textContent = '';
+      }
+      tabsOverflowBtn.setAttribute('aria-expanded', 'false');
+      if (tabsOverflowPanel) tabsOverflowPanel.hidden = true;
+      syncShellLayout();
+    }
+  } finally {
+    updatingOverflow = false;
+  }
+}
+
+function closeAllAccordionPanels() {
+  if (tabsOverflowPanel) {
+    tabsOverflowPanel.hidden = true;
+    tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+  }
+  const serviceMgr = document.getElementById('service-manager');
+  if (serviceMgr) {
+    serviceMgr.hidden = true;
+    document.getElementById('manage-services')?.setAttribute('aria-expanded', 'false');
+  }
+  if (servicePlusPanel) servicePlusPanel.hidden = true;
+  if (accountActionsPanel) accountActionsPanel.hidden = true;
+  if (profilePanel) profilePanel.hidden = true;
+  syncShellLayout();
+}
+
 document.getElementById('manage-services').onclick=()=>{
-  const panel=document.getElementById('service-manager');panel.hidden=!panel.hidden;
-  document.getElementById('manage-services').setAttribute('aria-expanded',String(!panel.hidden));renderServiceManager();
+  const panel=document.getElementById('service-manager');
+  const willOpen = panel.hidden;
+  closeAllAccordionPanels();
+  if (willOpen) {
+    panel.hidden = false;
+    document.getElementById('manage-services').setAttribute('aria-expanded','true');
+    renderServiceManager();
+    syncShellLayout();
+  }
 };
 document.getElementById('service-manager').onkeydown=event=>{
-  if(event.key==='Escape'){document.getElementById('service-manager').hidden=true;const button=document.getElementById('manage-services');button.setAttribute('aria-expanded','false');button.focus();}
+  if(event.key==='Escape'){document.getElementById('service-manager').hidden=true;const button=document.getElementById('manage-services');button.setAttribute('aria-expanded','false');button.focus();syncShellLayout();}
 };
+
+let overflowHoverTimer = null;
+function clearOverflowHoverTimer() {
+  if (overflowHoverTimer) {
+    clearTimeout(overflowHoverTimer);
+    overflowHoverTimer = null;
+  }
+}
+
+if (tabsOverflowBtn) {
+  tabsOverflowBtn.onclick = () => {
+    clearOverflowHoverTimer();
+    const willOpen = tabsOverflowPanel.hidden;
+    closeAllAccordionPanels();
+    if (willOpen) {
+      tabsOverflowPanel.hidden = false;
+      tabsOverflowBtn.setAttribute('aria-expanded', 'true');
+      renderTabsOverflowPanel();
+      tabsOverflowPanel.querySelector('.overflow-item')?.focus();
+    }
+  };
+  tabsOverflowBtn.onmouseenter = () => {
+    clearOverflowHoverTimer();
+    if (tabsOverflowPanel && tabsOverflowPanel.hidden) {
+      closeAllAccordionPanels();
+      tabsOverflowPanel.hidden = false;
+      tabsOverflowBtn.setAttribute('aria-expanded', 'true');
+      renderTabsOverflowPanel();
+    }
+  };
+  tabsOverflowBtn.onmouseleave = () => {
+    clearOverflowHoverTimer();
+    overflowHoverTimer = setTimeout(() => {
+      if (tabsOverflowPanel && !tabsOverflowPanel.hidden && !tabsOverflowPanel.matches(':hover')) {
+        tabsOverflowPanel.hidden = true;
+        tabsOverflowBtn.setAttribute('aria-expanded', 'false');
+        syncShellLayout();
+      }
+    }, 200);
+  };
+}
+
+if (tabsOverflowPanel) {
+  tabsOverflowPanel.onmouseenter = () => {
+    clearOverflowHoverTimer();
+  };
+  tabsOverflowPanel.onmouseleave = () => {
+    clearOverflowHoverTimer();
+    overflowHoverTimer = setTimeout(() => {
+      if (!tabsOverflowBtn?.matches(':hover')) {
+        tabsOverflowPanel.hidden = true;
+        tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+        syncShellLayout();
+      }
+    }, 200);
+  };
+  tabsOverflowPanel.onkeydown = event => {
+    if (event.key === 'Escape') {
+      tabsOverflowPanel.hidden = true;
+      tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+      tabsOverflowBtn?.focus();
+      syncShellLayout();
+    }
+  };
+}
 function moveService(source,target,after){
   const order=window.vxchatTabOrder(serviceOrder,source,target,after);
   if(order) void command({action:'preferences_update',patch:{service_order:order}});
 }
-function tabButton(tab){
-  const active=tab.id===current.active_tab_id,element=document.createElement('div');element.className='tab';element.dataset.tabId=tab.id;
-  element.setAttribute('role','tab');element.setAttribute('aria-selected',String(active));element.tabIndex=0;
-  element.classList.toggle('is-active',active);element.classList.toggle('is-loading',tab.status==='loading');element.classList.toggle('is-error',tab.status==='error');
-  const icon=createIcon(tab.service_id);if(icon)element.append(icon);
-  const indicator=document.createElement('span');indicator.className='tab-indicator';element.append(indicator);
-  const title=document.createElement('span');title.className='tab-title';title.textContent=tab.label;element.append(title);
-  element.onclick=()=>command({action:'select',tab_id:tab.id});
-  const close=document.createElement('button');close.type='button';close.className='tab-close';close.textContent='×';close.setAttribute('aria-label',`${t('closeTab')} ${tab.label}`);
-  close.onclick=event=>{event.stopPropagation();void command({action:'close',tab_id:tab.id});};element.append(close);
-  element.onkeydown=event=>{
-    if(event.target!==element||event.altKey)return;
-    if(['Enter',' '].includes(event.key)){event.preventDefault();void command({action:'select',tab_id:tab.id});}
-    if(['Delete','Backspace'].includes(event.key)){event.preventDefault();void command({action:'close',tab_id:tab.id});}
-    if(['ArrowLeft','ArrowRight'].includes(event.key)){
-      const tabs=[...tabsList.querySelectorAll('[role="tab"]')],next=tabs[tabs.indexOf(element)+(event.key==='ArrowRight'?1:-1)];
-      if(next){event.preventDefault();next.focus();void command({action:'select',tab_id:next.dataset.tabId});}
-    }
-  };return element;
-}
-function render(state){
-  if(!state)return;current=state;if(draggedServiceId)return;
-  const focus=document.activeElement,focusTab=focus?.closest('.tab')?.dataset.tabId,focusService=focus?.closest('.service-group')?.dataset.serviceId,focusPlus=focus?.dataset.addService;
-  tabsList.replaceChildren();
-  for(const id of serviceOrder.filter(id=>!hiddenServices.includes(id))){
-    const definition=state.services?.find(item=>item.id===id);if(!definition)continue;
-    const tabs=state.tabs.filter(tab=>tab.service_id===id),group=document.createElement('div');group.className='service-group';group.dataset.serviceId=id;group.draggable=true;
-    let primary;
-    if(tabs.length)primary=tabButton(tabs[0]);
-    else{
-      primary=document.createElement('button');primary.type='button';primary.className='tab service-launch is-unopened';
-      const icon=createIcon(id);if(icon)primary.append(icon);
-      const label=document.createElement('span');label.className='tab-title';label.textContent=definition.label;primary.append(label);
-      primary.onclick=()=>command({action:'add',service_id:id});
-    }
-    primary.dataset.launchService=id;primary.title=`${definition.label} · ${currentLang==='en'?(tabs.length?'Open · drag to reorder':'Not open · click to open'):(tabs.length?'Đang mở · kéo để sắp xếp':'Chưa mở · bấm để mở')}`;group.append(primary);
-    for(const tab of tabs.slice(1))group.append(tabButton(tab));
-    if(Object.hasOwn(PLACEHOLDER_PLUS,id)||id==='chatgpt'){
-      const plus=document.createElement('button');plus.type='button';plus.className='service-plus';plus.textContent='+';plus.dataset.addService=id;
-      const acct=PLACEHOLDER_PLUS[id];
-      plus.title=acct
-        ?(currentLang==='en'?`Add ${acct} account — coming soon`:`Thêm tài khoản ${acct} — chưa hỗ trợ`)
-        :(currentLang==='en'?'New ChatGPT tab · same signed-in account':'Mở thêm tab ChatGPT · cùng tài khoản đang đăng nhập');
-      plus.setAttribute('aria-label',plus.title);
-      if(acct){plus.setAttribute('aria-disabled','true');plus.classList.add('is-placeholder');}
-      else plus.onclick=()=>command({action:'add',service_id:id});group.append(plus);
-    }
-    group.onkeydown=event=>{
-      if(!event.altKey||!['ArrowLeft','ArrowRight'].includes(event.key))return;
-      const after=event.key==='ArrowRight',target=serviceOrder[serviceOrder.indexOf(id)+(after?1:-1)];
-      if(target){event.preventDefault();moveService(id,target,after);}
-    };
-    group.ondragstart=event=>{draggedServiceId=id;event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',id);group.classList.add('is-dragging');};
-    group.ondragover=event=>{if(draggedServiceId){event.preventDefault();event.dataTransfer.dropEffect='move';group.classList.add('drag-over');}};
-    group.ondragleave=()=>group.classList.remove('drag-over');
-    group.ondrop=event=>{
-      if(!draggedServiceId)return;event.preventDefault();const source=draggedServiceId;draggedServiceId=null;
-      const rect=group.getBoundingClientRect();moveService(source,id,event.clientX>=rect.left+rect.width/2);render(current);
-    };
-    group.ondragend=()=>{draggedServiceId=null;render(current);};tabsList.append(group);
+
+function openProfilePanel(serviceId, profileToEdit = null) {
+  if (!profilePanel) return;
+  closeAllAccordionPanels();
+  void window.vxchat.command({ action: 'download_panel_hide' });
+  const def = current?.services?.find(s => s.id === serviceId);
+  const serviceName = def ? def.label : serviceId;
+
+  if (profileToEdit) {
+    profilePanelTitle.textContent = currentLang === 'en'
+      ? `Edit profile · ${serviceName}`
+      : `Đổi tên / màu hồ sơ · ${serviceName}`;
+    profileServiceId.value = serviceId;
+    profileEditId.value = profileToEdit.id;
+    profileLabelInput.value = profileToEdit.label || '';
+    selectColorSwatch(profileToEdit.color || 'blue');
+  } else {
+    profilePanelTitle.textContent = currentLang === 'en'
+      ? `Add profile · ${serviceName}`
+      : `Thêm hồ sơ · ${serviceName}`;
+    profileServiceId.value = serviceId;
+    profileEditId.value = '';
+    profileLabelInput.value = '';
+    const usedColors = new Set((current?.profiles || []).map(p => p.color));
+    const nextColor = PROFILE_COLORS.find(c => !usedColors.has(c)) || 'amber';
+    selectColorSwatch(nextColor);
   }
-  const restore=(focusPlus&&tabsList.querySelector(`[data-add-service="${focusPlus}"]`))
-    ||(focusTab&&tabsList.querySelector(`[data-tab-id="${focusTab}"]`))
-    ||(focusService&&tabsList.querySelector(`[data-launch-service="${focusService}"]`));
+  profilePanel.hidden = false;
+  syncShellLayout();
+  setTimeout(() => profileLabelInput?.focus(), 50);
+}
+
+function openAccountActionsPanel(instance, serviceId, anchorEl = null) {
+  if (!accountActionsPanel || !instance) return;
+  closeAllAccordionPanels();
+  void window.vxchat.command({ action: 'download_panel_hide' });
+  accountActionsPanel.replaceChildren();
+
+  const def = current?.services?.find(s => s.id === serviceId);
+  const serviceName = def ? def.label : serviceId;
+  const profile = (current?.profiles || []).find(p => p.id === instance.profile_id);
+  const isDefault = profile?.is_default || instance.id.startsWith('default_');
+  const displayName = instance.profile_label || profile?.label || serviceName;
+
+  const title = document.createElement('span');
+  title.className = 'chrome-panel-title';
+  title.textContent = `${serviceName} (${displayName})`;
+  accountActionsPanel.append(title);
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'panel-action-item';
+  addBtn.dataset.action = 'add-profile';
+  addBtn.textContent = currentLang === 'en'
+    ? `➕ Add new ${serviceName} profile…`
+    : `➕ Thêm hồ sơ ${serviceName} mới…`;
+  addBtn.onclick = () => {
+    accountActionsPanel.hidden = true;
+    openProfilePanel(serviceId, null);
+  };
+  accountActionsPanel.append(addBtn);
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'panel-action-item';
+  editBtn.dataset.action = 'edit-profile';
+  editBtn.textContent = currentLang === 'en' ? '✏️ Edit profile name / color…' : '✏️ Đổi tên / màu hồ sơ…';
+  editBtn.onclick = () => {
+    accountActionsPanel.hidden = true;
+    openProfilePanel(serviceId, profile || { id: instance.profile_id, label: instance.profile_label || instance.label, color: instance.profile_color || 'blue' });
+  };
+  accountActionsPanel.append(editBtn);
+
+  if (!isDefault && profile) {
+    const divider = document.createElement('span');
+    divider.className = 'panel-divider';
+    accountActionsPanel.append(divider);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'panel-action-item is-danger';
+    delBtn.dataset.action = 'delete-profile';
+    delBtn.textContent = currentLang === 'en' ? '🗑️ Delete profile' : '🗑️ Xóa hồ sơ';
+    delBtn.onclick = async () => {
+      accountActionsPanel.hidden = true;
+      syncShellLayout();
+      const confirmed = window.confirm(currentLang === 'en'
+        ? `Delete profile "${profile.label}" and close all its tabs?`
+        : `Bạn có chắc muốn xóa hồ sơ "${profile.label}" và đóng mọi tab liên quan không?`);
+      if (confirmed) {
+        await command({ action: 'account_delete', profile_id: profile.id });
+      }
+    };
+    accountActionsPanel.append(delBtn);
+  }
+
+  accountActionsPanel.hidden = false;
+  positionFloatingDropdown(accountActionsPanel, anchorEl || document.querySelector(`[data-launch-service="${serviceId}"]`));
+}
+
+function openServicePlusPanel(serviceId, anchorEl = null) {
+  if (!servicePlusPanel) return;
+  closeAllAccordionPanels();
+  void window.vxchat.command({ action: 'download_panel_hide' });
+  servicePlusPanel.replaceChildren();
+
+  const def = current?.services?.find(s => s.id === serviceId);
+  const serviceName = def ? def.label : serviceId;
+  const instances = (current?.instances || []).filter(i => i.service_id === serviceId);
+
+  const title = document.createElement('span');
+  title.className = 'chrome-panel-title';
+  title.textContent = currentLang === 'en'
+    ? `New ${serviceName} session`
+    : `Mở phiên ${serviceName} mới`;
+  servicePlusPanel.append(title);
+
+  for (const inst of instances) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'panel-action-item';
+    const icon = createIcon(serviceId);
+    if (icon) item.append(icon);
+    const text = document.createElement('span');
+    const label = formatMultiAccountLabel(serviceName, inst.profile_label);
+    text.textContent = label;
+    item.append(text);
+    item.onclick = () => {
+      servicePlusPanel.hidden = true;
+      syncShellLayout();
+      void command({ action: 'instance_open', instance_id: inst.id });
+    };
+    servicePlusPanel.append(item);
+  }
+
+  servicePlusPanel.hidden = false;
+  positionFloatingDropdown(servicePlusPanel, anchorEl || document.querySelector(`[data-add-service="${serviceId}"]`));
+}
+
+async function saveProfile() {
+  const serviceId = profileServiceId.value;
+  const editId = profileEditId.value;
+  const label = (profileLabelInput.value || '').trim();
+  if (!label) return;
+  const color = selectedProfileColor || 'blue';
+  profilePanel.hidden = true;
+  syncShellLayout();
+  if (editId) {
+    await command({ action: 'account_update', profile_id: editId, label, color });
+  } else {
+    await command({ action: 'account_create', service_id: serviceId, label, color });
+  }
+}
+
+if (profileSaveBtn) profileSaveBtn.onclick = () => void saveProfile();
+if (profileCancelBtn) profileCancelBtn.onclick = () => { profilePanel.hidden = true; syncShellLayout(); };
+if (profileCloseBtn) profileCloseBtn.onclick = () => { profilePanel.hidden = true; syncShellLayout(); };
+if (profileLabelInput) {
+  profileLabelInput.onkeydown = e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void saveProfile();
+    } else if (e.key === 'Escape') {
+      profilePanel.hidden = true;
+      syncShellLayout();
+    }
+  };
+}
+
+function tabButton(tab, { showDot = false, dotColor = 'blue', displayLabel = null, instance = null } = {}) {
+  const active = tab.id === current.active_tab_id;
+  const element = document.createElement('div');
+  element.className = 'tab';
+  element.dataset.tabId = tab.id;
+  if (dotColor) element.dataset.profileColor = dotColor;
+  element.setAttribute('role', 'tab');
+  element.setAttribute('aria-selected', String(active));
+  element.tabIndex = 0;
+  element.classList.toggle('is-active', active);
+  element.classList.toggle('is-loading', tab.status === 'loading');
+  element.classList.toggle('is-error', tab.status === 'error');
+
+  const icon = createIcon(tab.service_id);
+  if (icon) element.append(icon);
+
+  if (showDot) {
+    const dot = document.createElement('span');
+    dot.className = 'profile-dot';
+    dot.dataset.color = dotColor;
+    element.append(dot);
+  }
+
+  const indicator = document.createElement('span');
+  indicator.className = 'tab-indicator';
+  element.append(indicator);
+
+  const title = document.createElement('span');
+  title.className = 'tab-title';
+  title.textContent = displayLabel || tab.label;
+  element.append(title);
+
+  element.onclick = () => command({ action: 'select', tab_id: tab.id });
+  element.oncontextmenu = event => {
+    event.preventDefault();
+    openAccountActionsPanel(instance || current?.instances?.find(i => i.id === tab.instance_id), tab.service_id, element);
+  };
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'tab-close';
+  close.textContent = '×';
+  close.setAttribute('aria-label', `${t('closeTab')} ${displayLabel || tab.label}`);
+  close.onclick = event => {
+    event.stopPropagation();
+    void command({ action: 'close', tab_id: tab.id });
+  };
+  element.append(close);
+
+  element.onkeydown = event => {
+    if (event.target !== element || event.altKey) return;
+    if (['Enter', ' '].includes(event.key)) {
+      event.preventDefault();
+      void command({ action: 'select', tab_id: tab.id });
+    }
+    if (['Delete', 'Backspace'].includes(event.key)) {
+      event.preventDefault();
+      void command({ action: 'close', tab_id: tab.id });
+    }
+    if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      const tabs = [...tabsList.querySelectorAll('[role="tab"]')];
+      const next = tabs[tabs.indexOf(element) + (event.key === 'ArrowRight' ? 1 : -1)];
+      if (next) {
+        event.preventDefault();
+        next.focus();
+        void command({ action: 'select', tab_id: next.dataset.tabId });
+      }
+    }
+  };
+  return element;
+}
+
+function render(state) {
+  if (!state) return;
+  current = state;
+  if (draggedServiceId) return;
+
+  const focus = document.activeElement;
+  const focusTab = focus?.closest('.tab')?.dataset.tabId;
+  const focusService = focus?.closest('.service-group')?.dataset.serviceId;
+  const focusPlus = focus?.dataset.addService;
+
+  tabsList.replaceChildren();
+
+  for (const id of [...ephemeralOpenServices]) {
+    if (!hiddenServices.includes(id) || !state.tabs.some(t => t.service_id === id)) {
+      ephemeralOpenServices.delete(id);
+    }
+  }
+
+  for (const id of serviceOrder.filter(id => !hiddenServices.includes(id) || ephemeralOpenServices.has(id))) {
+    const definition = state.services?.find(item => item.id === id);
+    if (!definition) continue;
+
+    const group = document.createElement('div');
+    group.className = 'service-group';
+    group.dataset.serviceId = id;
+    group.draggable = true;
+
+    const instances = (state.instances || []).filter(i => i.service_id === id);
+    const serviceTabs = state.tabs.filter(t => t.service_id === id);
+    const isMultiAccount = instances.length >= 2;
+
+    if (!isMultiAccount) {
+      const instance = instances[0] || null;
+      let primary;
+      if (serviceTabs.length) {
+        primary = tabButton(serviceTabs[0], { instance, showDot: false });
+        primary.dataset.launchService = id;
+        group.append(primary);
+        for (const tab of serviceTabs.slice(1)) {
+          group.append(tabButton(tab, { instance, showDot: false }));
+        }
+      } else {
+        primary = document.createElement('button');
+        primary.type = 'button';
+        primary.className = 'tab service-launch is-unopened';
+        primary.dataset.launchService = id;
+        const icon = createIcon(id);
+        if (icon) primary.append(icon);
+        const label = document.createElement('span');
+        label.className = 'tab-title';
+        label.textContent = definition.label;
+        primary.append(label);
+        primary.title = `${definition.label} · ${currentLang === 'en' ? 'Not open · click to open' : 'Chưa mở · bấm để mở'}`;
+        primary.onclick = () => command({ action: 'add', service_id: id });
+        if (instance) {
+          primary.oncontextmenu = e => {
+            e.preventDefault();
+            openAccountActionsPanel(instance, id, primary);
+          };
+        }
+        group.append(primary);
+      }
+
+      if (definition.multiTab) {
+        const plus = document.createElement('button');
+        plus.type = 'button';
+        plus.className = 'service-plus';
+        plus.textContent = '+';
+        plus.dataset.addService = id;
+        plus.title = currentLang === 'en'
+          ? `New ${definition.label} session`
+          : `Mở phiên ${definition.label} mới`;
+        plus.setAttribute('aria-label', plus.title);
+        plus.onclick = () => command({ action: 'add', service_id: id });
+        group.append(plus);
+      }
+    } else {
+      // Multi-account
+      let firstRendered = true;
+      for (const instance of instances) {
+        const instTabs = serviceTabs.filter(t => t.instance_id === instance.id);
+        const baseFormatted = formatMultiAccountLabel(definition.label, instance.profile_label);
+        if (instTabs.length) {
+          for (const tab of instTabs) {
+            const displayLabel = formatMultiAccountLabel(definition.label, instance.profile_label, tab.label);
+            const btn = tabButton(tab, {
+              showDot: true,
+              dotColor: instance.profile_color || 'blue',
+              displayLabel,
+              instance
+            });
+            if (firstRendered) {
+              btn.dataset.launchService = id;
+              firstRendered = false;
+            }
+            group.append(btn);
+          }
+        } else {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'tab service-launch is-unopened';
+          btn.dataset.instanceId = instance.id;
+          btn.dataset.profileColor = instance.profile_color || 'blue';
+          if (firstRendered) {
+            btn.dataset.launchService = id;
+            firstRendered = false;
+          }
+          const icon = createIcon(id);
+          if (icon) btn.append(icon);
+          const dot = document.createElement('span');
+          dot.className = 'profile-dot';
+          dot.dataset.color = instance.profile_color || 'blue';
+          btn.append(dot);
+          const label = document.createElement('span');
+          label.className = 'tab-title';
+          label.textContent = baseFormatted;
+          btn.append(label);
+          btn.title = `${baseFormatted} · ${currentLang === 'en' ? 'Not open · click to open' : 'Chưa mở · bấm để mở'}`;
+          btn.onclick = () => command({ action: 'instance_open', instance_id: instance.id });
+          btn.oncontextmenu = e => {
+            e.preventDefault();
+            openAccountActionsPanel(instance, id, btn);
+          };
+          group.append(btn);
+        }
+      }
+
+      if (definition.multiTab) {
+        const plus = document.createElement('button');
+        plus.type = 'button';
+        plus.className = 'service-plus';
+        plus.textContent = '+';
+        plus.dataset.addService = id;
+        plus.title = currentLang === 'en'
+          ? `New ${definition.label} session`
+          : `Mở phiên ${definition.label} mới`;
+        plus.setAttribute('aria-label', plus.title);
+        plus.onclick = () => openServicePlusPanel(id, plus);
+        group.append(plus);
+      }
+    }
+
+    group.onkeydown = event => {
+      if (!event.altKey || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      const after = event.key === 'ArrowRight';
+      const target = serviceOrder[serviceOrder.indexOf(id) + (after ? 1 : -1)];
+      if (target) {
+        event.preventDefault();
+        moveService(id, target, after);
+      }
+    };
+    group.ondragstart = event => {
+      draggedServiceId = id;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', id);
+      group.classList.add('is-dragging');
+    };
+    group.ondragover = event => {
+      if (draggedServiceId) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        group.classList.add('drag-over');
+      }
+    };
+    group.ondragleave = () => group.classList.remove('drag-over');
+    group.ondrop = event => {
+      if (!draggedServiceId) return;
+      event.preventDefault();
+      const source = draggedServiceId;
+      draggedServiceId = null;
+      const rect = group.getBoundingClientRect();
+      moveService(source, id, event.clientX >= rect.left + rect.width / 2);
+      render(current);
+    };
+    group.ondragend = () => {
+      draggedServiceId = null;
+      render(current);
+    };
+    tabsList.append(group);
+  }
+
+  const restore = (focusPlus && tabsList.querySelector(`[data-add-service="${focusPlus}"]`))
+    || (focusTab && tabsList.querySelector(`[data-tab-id="${focusTab}"]`))
+    || (focusService && tabsList.querySelector(`[data-launch-service="${focusService}"]`));
   restore?.focus();
-  renderServiceManager();renderWorkflow(state);
-  const active=state.tabs.find(tab=>tab.id===state.active_tab_id),location=document.getElementById('page-location');location.textContent=active?.location||'';location.title=location.textContent;
-  document.getElementById('setup-btn').hidden=active?.service_id!=='messenger';
+  renderServiceManager();
+  renderWorkflow(state);
+  const active = state.tabs.find(tab => tab.id === state.active_tab_id);
+  const location = document.getElementById('page-location');
+  location.textContent = active?.location || '';
+  location.title = location.textContent;
+  document.getElementById('setup-btn').hidden = active?.service_id !== 'messenger';
+  updateOverflow();
 }
 
 reloadBtn.onclick = () => {
@@ -232,7 +1119,14 @@ if (settingsBtn) {
 // Native menu accelerators own global shortcuts, including when remote content has focus.
 function applyPreferences(value) {
   serviceOrder = value.service_order || serviceOrder;
-  hiddenServices = value.hidden_services || [];
+  const nextHidden = value.hidden_services || [];
+  for (const id of nextHidden) {
+    if (!hiddenServices.includes(id)) ephemeralOpenServices.delete(id);
+  }
+  for (const id of [...ephemeralOpenServices]) {
+    if (!nextHidden.includes(id)) ephemeralOpenServices.delete(id);
+  }
+  hiddenServices = nextHidden;
   applyTheme(value.theme); applyLang(value.language);
 }
 const workflow = document.getElementById('workflow');
@@ -327,14 +1221,39 @@ document.getElementById('downloads-btn').onclick = () => {
 };
 document.addEventListener('pointerdown', event => {
   if (!event.target.closest('#downloads-btn')) void window.vxchat.command({ action: 'download_panel_hide' });
+  let closed = false;
+  if (tabsOverflowPanel && !tabsOverflowPanel.hidden && !event.target.closest('#tabs-overflow-panel') && !event.target.closest('#tabs-overflow-btn')) {
+    tabsOverflowPanel.hidden = true;
+    tabsOverflowBtn?.setAttribute('aria-expanded', 'false');
+    closed = true;
+  }
+  if (servicePlusPanel && !servicePlusPanel.hidden && !event.target.closest('#service-plus-panel') && !event.target.closest('.service-plus')) {
+    servicePlusPanel.hidden = true;
+    closed = true;
+  }
+  if (accountActionsPanel && !accountActionsPanel.hidden && !event.target.closest('#account-actions-panel') && !event.target.closest('.tab')) {
+    accountActionsPanel.hidden = true;
+    closed = true;
+  }
+  if (closed) syncShellLayout();
 });
-let reportedHeight = 0;
+window.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    closeAllAccordionPanels();
+  }
+});
+initColorPicker();
+if (tabsWrapper) {
+  new ResizeObserver(() => {
+    updateOverflow();
+  }).observe(tabsWrapper);
+}
 new ResizeObserver(() => {
-  const height = Math.max(68, Math.min(220, Math.ceil(document.getElementById('chrome').getBoundingClientRect().height)));
-  if (height !== reportedHeight) { reportedHeight = height; void window.vxchat.command({ action: 'layout', height }); }
+  syncShellLayout();
 }).observe(document.getElementById('chrome'));
 applyTheme(currentTheme); applyLang(currentLang);
 window.vxchat.subscribe(render); window.vxchat.preferences(applyPreferences);
+if (window.vxchat.dismiss) window.vxchat.dismiss(() => closeAllAccordionPanels());
 if (window.vxchat.downloads && downloadTracker) window.vxchat.downloads(records => downloadTracker.update(records));
 // Only theme/language from the old local shell are eligible for one-time migration.
 let legacy = {};

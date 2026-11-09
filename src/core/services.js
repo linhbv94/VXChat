@@ -6,7 +6,7 @@ const SERVICES = Object.freeze({
   slack: Object.freeze({ label: 'Slack', url: 'https://app.slack.com/', hosts: ['slack.com'], multiTab: false }),
   chatgpt: Object.freeze({ label: 'ChatGPT', url: 'https://chatgpt.com/', hosts: ['chatgpt.com'], multiTab: true }),
   gmail: Object.freeze({ label: 'Gmail', url: 'https://mail.google.com/', hosts: ['mail.google.com', 'meet.google.com'], multiTab: false, partition: 'persist:service-google' }),
-  gemini: Object.freeze({ label: 'Gemini', url: 'https://gemini.google.com/app', hosts: ['gemini.google.com', 'meet.google.com'], multiTab: false, partition: 'persist:service-google' }),
+  gemini: Object.freeze({ label: 'Gemini', url: 'https://gemini.google.com/app', hosts: ['gemini.google.com', 'meet.google.com'], multiTab: true, partition: 'persist:service-google' }),
   meet: Object.freeze({ label: 'Meet', url: 'https://meet.google.com/', hosts: ['meet.google.com'], multiTab: false, partition: 'persist:service-google' })
 });
 const AUTH_HOSTS = Object.freeze(['accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'auth.openai.com', 'auth0.openai.com', 'id.zalo.me']);

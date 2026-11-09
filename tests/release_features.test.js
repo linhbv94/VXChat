@@ -85,3 +85,59 @@ test('image sources and Settings IPC cannot smuggle local paths or foreign blob 
   assert.equal(validCommand({action:'zoom_update',instance_id:'default_slack',factor:1.25}),true);
   assert.equal(validCommand({action:'zoom_update',instance_id:'default_slack',factor:25}),false);
 });
+test('Tab overflow calculation handles capacity, edge budgets and preserves active tab visibility', () => {
+  const { calculateTabOverflow } = require('../src/shell/tab_overflow');
+
+  assert.deepEqual(calculateTabOverflow({ groupWidths: [], availableWidth: 500 }), {
+    overflow: false,
+    overflowCount: 0,
+    visibleIndices: [],
+    overflowIndices: []
+  });
+
+  const fits = calculateTabOverflow({
+    groupWidths: [100, 100, 100],
+    availableWidth: 400,
+    activeIndex: 0
+  });
+  assert.equal(fits.overflow, false);
+  assert.equal(fits.overflowCount, 0);
+  assert.deepEqual(fits.visibleIndices, [0, 1, 2]);
+  assert.deepEqual(fits.overflowIndices, []);
+
+  const overflowFirst = calculateTabOverflow({
+    groupWidths: [100, 100, 100, 100],
+    availableWidth: 300,
+    activeIndex: 0,
+    pillWidth: 56,
+    gap: 3
+  });
+  assert.equal(overflowFirst.overflow, true);
+  assert.equal(overflowFirst.overflowCount, 2);
+  assert.deepEqual(overflowFirst.visibleIndices, [0, 1]);
+  assert.deepEqual(overflowFirst.overflowIndices, [2, 3]);
+
+  const overflowActiveFar = calculateTabOverflow({
+    groupWidths: [100, 100, 100, 100],
+    availableWidth: 300,
+    activeIndex: 3,
+    pillWidth: 56,
+    gap: 3
+  });
+  assert.equal(overflowActiveFar.overflow, true);
+  assert.equal(overflowActiveFar.overflowCount, 2);
+  assert.ok(overflowActiveFar.visibleIndices.includes(3), 'Active tab index 3 must remain visible');
+  assert.deepEqual(overflowActiveFar.visibleIndices, [0, 3]);
+  assert.deepEqual(overflowActiveFar.overflowIndices, [1, 2]);
+
+  const standard7 = calculateTabOverflow({
+    groupWidths: [110, 110, 110, 110, 110, 110, 110],
+    availableWidth: 550,
+    activeIndex: 5,
+    pillWidth: 56,
+    gap: 3
+  });
+  assert.equal(standard7.overflow, true);
+  assert.ok(standard7.overflowCount >= 2);
+  assert.ok(standard7.visibleIndices.includes(5), 'Active tab must be visible');
+});

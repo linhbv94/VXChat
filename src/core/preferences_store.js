@@ -25,8 +25,9 @@ function validatePreferences(value) {
   const services = Object.keys(SERVICES);
   if (!Array.isArray(value.service_order) || value.service_order.length !== services.length || new Set(value.service_order).size !== services.length || value.service_order.some(id => !services.includes(id)) || !Array.isArray(value.hidden_services) || new Set(value.hidden_services).size !== value.hidden_services.length || value.hidden_services.some(id => !services.includes(id))) throw new Error('invalid_preferences');
   if (typeof value.ask_download_location !== 'boolean' || (value.download_directory !== null && (typeof value.download_directory !== 'string' || value.download_directory.length > 4096 || !path.isAbsolute(value.download_directory)))) throw new Error('invalid_preferences');
-  const ids = defaultInstances().map(i => i.id);
-  if (!value.zoom_levels || typeof value.zoom_levels !== 'object' || Array.isArray(value.zoom_levels) || Object.entries(value.zoom_levels).some(([id,n]) => !ids.includes(id) || !Number.isFinite(n) || n < 0.5 || n > 2)) throw new Error('invalid_preferences');
+  const ids = new Set(defaultInstances().map(i => i.id));
+  const validZoomInstance = id => ids.has(id) || /^instance_(?:messenger|zalo|slack|chatgpt|gmail|gemini|meet)_profile_[a-zA-Z0-9_-]{1,64}$/.test(id);
+  if (!value.zoom_levels || typeof value.zoom_levels !== 'object' || Array.isArray(value.zoom_levels) || Object.entries(value.zoom_levels).some(([id,n]) => !validZoomInstance(id) || !Number.isFinite(n) || n < 0.5 || n > 2)) throw new Error('invalid_preferences');
   if (value.slack_workspace_url !== null && normalizeSlackWorkspace(value.slack_workspace_url) !== value.slack_workspace_url) throw new Error('invalid_workspace_url');
   return value;
 }

@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('vxchat', {
   subscribe: callback => subscribe('vxchat:state', callback),
   preferences: callback => subscribe('vxchat:preferences', callback),
   downloads: callback => subscribe('vxchat:downloads', callback),
-  updates: callback => subscribe('vxchat:updates',callback)
+  updates: callback => subscribe('vxchat:updates',callback),
+  dismiss: callback => subscribe('vxchat:dismiss', callback)
 });

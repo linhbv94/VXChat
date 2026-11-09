@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="shared/titlebar_tokens.css">
   <link rel="stylesheet" href="shell.css">
 </head>
-<body>
+<body class="shell-body">
   <header id="chrome">
   <div data-vx-titlebar="standard_32" id="titlebar">
     <div data-vx-titlebar-brand><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span data-vx-titlebar-name>VXChat</span></div>
@@ -38,13 +38,35 @@
   <nav aria-label="Thanh tab / Tabs" class="nav-bar">
     <div id="tabs-wrapper" class="tabs-wrapper">
       <div id="tabs" class="tabs-list" role="tablist"></div>
+      <button id="tabs-overflow-btn" class="tabs-overflow-btn" type="button" aria-expanded="false" aria-controls="tabs-overflow-panel" title="Dịch vụ ẩn / Tab bị khuất" aria-label="Dịch vụ ẩn / Tab bị khuất" hidden>
+        <span class="overflow-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></span>
+        <span id="tabs-overflow-count" class="overflow-count" hidden></span>
+        <span class="overflow-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+      </button>
     </div>
     <span id="page-location" class="page-location" aria-label="Trang hiện tại"></span>
     <button id="manage-services" class="nav-btn" type="button" aria-expanded="false" aria-controls="service-manager">⋯</button>
   </nav>
+  <div id="tabs-overflow-panel" class="tabs-overflow-panel floating-dropdown" hidden></div>
   <div id="service-manager" hidden></div>
-  <div id="workflow" class="workflow" hidden></div></header>
+  <div id="workflow" class="workflow" hidden></div>
+  <div id="service-plus-panel" class="chrome-panel floating-dropdown" hidden></div>
+  <div id="account-actions-panel" class="chrome-panel floating-dropdown" hidden></div>
+  <div id="profile-panel" class="chrome-panel" hidden>
+    <div class="profile-panel-row">
+      <span id="profile-panel-title" class="profile-panel-title">Thêm tài khoản</span>
+      <input type="hidden" id="profile-service-id">
+      <input type="hidden" id="profile-edit-id">
+      <input type="text" id="profile-label-input" class="profile-panel-input" maxlength="32" placeholder="Nhãn: Work, Cá nhân...">
+      <div id="profile-color-picker" class="color-picker-inline"></div>
+      <button type="button" id="profile-save-btn" class="profile-panel-btn profile-panel-btn-primary">Lưu</button>
+      <button type="button" id="profile-cancel-btn" class="profile-panel-btn">Hủy</button>
+      <button type="button" id="profile-close-btn" class="panel-close-btn" aria-label="Đóng">×</button>
+    </div>
+  </div>
+  </header>
   <script src="tab_order.js"></script>
+  <script src="tab_overflow.js"></script>
   <script src="download_feedback.js"></script>
   <script src="shell.js"></script>
 </body>

@@ -115,7 +115,7 @@ class ContentOwner {
   }
   setSelected(selected) {
     if (this.disposed || this.window.isDestroyed()) return;
-    if (selected) { if (!this.attached) { this.window.contentView.addChildView(this.view); this.attached = true; } this.resize(); }
+    if (selected) { if (!this.attached) { this.window.contentView.addChildView(this.view, 0); this.attached = true; } this.resize(); }
     else if (this.attached) { this.window.contentView.removeChildView(this.view); this.attached = false; }
   }
   resize() {

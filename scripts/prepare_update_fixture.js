@@ -10,7 +10,6 @@ const port = () => new Promise((resolve,reject) => {const server = net.createSer
   fs.writeFileSync(path.join(source,'src/core/release_qa_build.json'),JSON.stringify({profile:root,debug_port:debugPort}));
   fs.writeFileSync(path.join(root,'release_qa_v1.json'),JSON.stringify({schema_version:1,feed_url:`http://127.0.0.1:${feedPort}/vxchat_fixture/`,cookie_nonce:randomBytes(16).toString('hex')}),{mode:0o600});
   const state = require('../src/core/state_store').initialState();
-  state.instances = state.instances.filter(i => ['default_messenger', 'default_zalo', 'default_slack', 'default_chatgpt'].includes(i.id));
   state.tabs = [];
   state.active_tab_id = null;
   fs.writeFileSync(path.join(root,'tabs_state_v2.json'),JSON.stringify(state));
