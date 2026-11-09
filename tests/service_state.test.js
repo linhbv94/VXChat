@@ -35,6 +35,7 @@ test('service-state validation and write failures preserve confirmed state; inva
 });
 test('navbar compact mode requires explicit setup plus canonical Messenger conversation URL', () => {
   assert.equal(compactAllowed('https://www.facebook.com/messages/t/123', true), true);
+  assert.equal(compactAllowed('https://www.facebook.com/messenger_media/?attachment_id=123&thread_id=456', true), true);
   for (const url of ['https://www.facebook.com/', 'https://www.facebook.com/login.php', 'https://www.facebook.com/checkpoint/', 'https://facebook.com.evil.test/messages/t/123', 'https://www.facebook.com:444/messages/t/123']) assert.equal(compactAllowed(url, true), false);
   assert.equal(compactAllowed('https://www.facebook.com/messages/t/123', false), false);
   assert.equal(navigationDecision('messenger', 'https://www.facebook.com/', { phase: 'client_ready', currentURL: 'https://www.facebook.com/messages/t/123', setupConfirmed: false }), 'allow');

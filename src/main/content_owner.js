@@ -135,7 +135,7 @@ class ContentOwner {
         event.preventDefault(); void this.openExternal(url).then(() => { if (this.live() && !record.child.isDestroyed()) record.child.close(); }); return;
       }
       if (record && routeStage(this.instance.service_id, url) === 'auth') { record.authFlow = true; record.authSeen = true; }
-      if (record && !record.authFlow && record.stage === 'waiting' && messengerRoute(url) === 'call') record.purpose = 'call';
+      if (record && !record.authFlow && record.stage === 'waiting' && windowPurpose(this.instance.service_id, url, false) === 'call') record.purpose = 'call';
       const decision = this.decision(url, record, redirected);
       if (decision === 'allow') {
         if (!auxiliary && routeStage(this.instance.service_id, url) === 'auth') {
@@ -162,6 +162,11 @@ class ContentOwner {
     wc.setWindowOpenHandler(({ url }) => {
       const converted = this.instance.service_id === 'slack' && slackClientURL(url);
       if (converted && this.live()) { void this.navigateTo(converted); return { action: 'deny' }; }
+      const parsed = httpsURL(url);
+      if (this.instance.service_id === 'messenger' && !auxiliary && this.serviceState.entry(this.instance.id).setup_confirmed && parsed && !parsed.port && MESSENGER_HOSTS.includes(parsed.hostname) && /^\/messenger_media(?:\/|$)/.test(parsed.pathname)) {
+        if (this.live()) void this.navigateTo(url);
+        return { action: 'deny' };
+      }
       const authFlow = !!record?.authFlow || ['starting', 'authenticating', 'post_login_setup'].includes(this.workflow.phase);
       const purpose = windowPurpose(this.instance.service_id, url, authFlow);
       const scoped = navigationKind(this.instance.service_id, url) === 'auth' ? 'allow' : serviceScopeDecision(this.instance.service_id, url, { confirmed: this.serviceState.entry(this.instance.id).setup_confirmed, purpose, authFlow });
@@ -185,7 +190,7 @@ class ContentOwner {
       const committed = (inPage = false) => {
         if (!this.live() || child.isDestroyed()) return;
         const url = childContents.getURL(); popup.origin = httpsURL(url)?.origin || null;
-        if (!popup.authFlow && popup.purpose === 'auxiliary' && messengerRoute(url) === 'call') popup.purpose = 'call';
+        if (!popup.authFlow && popup.purpose === 'auxiliary' && windowPurpose(this.instance.service_id, url, false) === 'call') popup.purpose = 'call';
         if (this.decision(url, popup) !== 'allow') {
           if (this.decision(url,popup) === 'external') void this.openExternal(url);
           const history = childContents.navigationHistory; const index = history?.getAllEntries().findIndex(e => e.url === popup.lastInScope);

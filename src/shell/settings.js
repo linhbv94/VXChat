@@ -110,7 +110,7 @@ function renderBrowserPreferences() {
   const root = document.getElementById('browser-controls'); if (!root) return;
   const en = currentLang === 'en'; root.replaceChildren();
   const heading = document.createElement('h3'); heading.className = 'vx_settings_heading'; heading.textContent = en ? 'Web content & downloads' : 'Nội dung web & tải xuống'; root.append(heading);
-  for (const [service,label] of [['messenger','Messenger'],['zalo','Zalo'],['slack','Slack'],['chatgpt','ChatGPT']]) {
+  for (const [service,label] of [['messenger','Messenger'],['zalo','Zalo'],['slack','Slack'],['chatgpt','ChatGPT'],['gmail','Gmail'],['gemini','Gemini'],['meet','Google Meet']]) {
     const row = document.createElement('label'); row.className = 'browser-preference-row'; row.textContent = `${label} — Zoom`;
     const select = document.createElement('select'); select.id = `zoom-${service}`;
     for (const value of [0.5,0.67,0.8,0.9,1,1.1,1.25,1.5,1.75,2]) { const option = document.createElement('option'); option.value = value; option.textContent = `${Math.round(value * 100)}%`; select.append(option); }
@@ -150,8 +150,8 @@ function businessLabels() {
   const itemWeb = document.getElementById('accounts-item-web');
   if (itemWeb) {
     itemWeb.innerHTML = en
-      ? '<strong>Slack / ChatGPT / Zalo:</strong> Log out or switch workspaces/accounts directly through the profile/account menu inside each web service.'
-      : '<strong>Slack / ChatGPT / Zalo:</strong> Đăng xuất hoặc chuyển workspace/tài khoản trực tiếp qua menu cá nhân trong giao diện của từng dịch vụ.';
+      ? '<strong>Slack / ChatGPT / Zalo / Gmail / Gemini / Meet:</strong> Log out or switch workspaces/accounts directly through the profile/account menu inside each web service. Gmail, Gemini, and Google Meet share one Google sign-in session.'
+      : '<strong>Slack / ChatGPT / Zalo / Gmail / Gemini / Meet:</strong> Đăng xuất hoặc chuyển workspace/tài khoản trực tiếp qua menu cá nhân trong giao diện của từng dịch vụ. Gmail, Gemini và Google Meet dùng chung một phiên đăng nhập Google.';
   }
   renderPermissions();
   renderShortcuts();

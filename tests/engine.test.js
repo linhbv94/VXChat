@@ -42,14 +42,14 @@ test('old generated AI label migration persists before allocating a view, preser
   const engine=new TabEngine({store,createOwner:()=>{allocations++;assert.ok(saved);return {load(){},setSelected(){},dispose(){}};}});
   engine.start();assert.equal(saved.tabs.find(t=>t.id===tab.id).label,'ChatGPT');
   assert.deepEqual(saved.tabs.map(t=>t.id),before.tabs.map(t=>t.id));assert.deepEqual(saved.instances,before.instances);
-  assert.equal(state.tabs.find(t=>t.id===tab.id).label,'ChatGPT 1');assert.equal(allocations,4);engine.dispose();
+  assert.equal(state.tabs.find(t=>t.id===tab.id).label,'ChatGPT 1');assert.equal(allocations,state.tabs.length);engine.dispose();
   const failed=new TabEngine({store:{load:()=>before,save(){throw Error('disk_full');}},createOwner(){throw Error('must_not_allocate');}});
   assert.throws(()=>failed.start(),/disk_full/);assert.equal(before.tabs.find(t=>t.id===tab.id).label,'ChatGPT 1');
 });
 test('non-AI duplicate selects existing without allocation/load; AI shares instance but owns new view', async () => {
   const { engine, owners } = fixture();
   const existing = engine.state.tabs.find(t => t.instance_id === 'default_slack');
-  assert.equal(await engine.add('slack'), existing.id); assert.equal(owners.length, 4);
+  assert.equal(await engine.add('slack'), existing.id); assert.equal(owners.length, engine.state.tabs.length);
   const a = engine.state.tabs.find(t => t.instance_id === 'default_chatgpt');
   const b = await engine.add('chatgpt'); assert.notEqual(a.id, b);
   assert.equal(engine.state.tabs.find(t => t.id === b).instance_id, a.instance_id);

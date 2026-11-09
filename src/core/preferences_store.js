@@ -13,6 +13,10 @@ function migratePreferences(value) {
     if (Object.keys(value).sort().join() !== keys.sort().join()) throw new Error('invalid_preferences');
     return { ...DEFAULTS, ...value, schema_version:3 };
   }
+  const services = Object.keys(SERVICES);
+  if (value?.schema_version === 3 && Array.isArray(value.service_order) && value.service_order.length > 0 && value.service_order.length < services.length && new Set(value.service_order).size === value.service_order.length && value.service_order.every(id => services.includes(id))) {
+    return { ...value, service_order: [...value.service_order, ...services.filter(id => !value.service_order.includes(id))] };
+  }
   return value;
 }
 const THEMES = ['system', 'dark', 'light', 'black'];

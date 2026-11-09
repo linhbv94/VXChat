@@ -6,10 +6,14 @@ const port = () => new Promise((resolve,reject) => {const server = net.createSer
   const feedPort = await port(); const debugPort = await port();
   for (const entry of ['src','scripts','packaging','package.json','package-lock.json','electron_builder.config.js','icon.png','icon.icns','icon.ico']) fs.cpSync(path.resolve(entry),path.join(source,entry),{recursive:true,verbatimSymlinks:true});
   fs.symlinkSync(path.resolve('node_modules'),path.join(source,'node_modules'),'dir');
-  const pkg = JSON.parse(fs.readFileSync(path.join(source,'package.json')));pkg.version = '1.0.1';fs.writeFileSync(path.join(source,'package.json'),JSON.stringify(pkg,null,2));
+  const pkg = JSON.parse(fs.readFileSync(path.join(source,'package.json')));pkg.version = require('../package.json').version;fs.writeFileSync(path.join(source,'package.json'),JSON.stringify(pkg,null,2));
   fs.writeFileSync(path.join(source,'src/core/release_qa_build.json'),JSON.stringify({profile:root,debug_port:debugPort}));
   fs.writeFileSync(path.join(root,'release_qa_v1.json'),JSON.stringify({schema_version:1,feed_url:`http://127.0.0.1:${feedPort}/vxchat_fixture/`,cookie_nonce:randomBytes(16).toString('hex')}),{mode:0o600});
-  const state = require('../src/core/state_store').initialState();state.tabs = [];state.active_tab_id = null;fs.writeFileSync(path.join(root,'tabs_state_v2.json'),JSON.stringify(state));
+  const state = require('../src/core/state_store').initialState();
+  state.instances = state.instances.filter(i => ['default_messenger', 'default_zalo', 'default_slack', 'default_chatgpt'].includes(i.id));
+  state.tabs = [];
+  state.active_tab_id = null;
+  fs.writeFileSync(path.join(root,'tabs_state_v2.json'),JSON.stringify(state));
   // The installed baseline is published 1.0.0, which only understands schema2.
   // Let the new binary perform its normal migration after native relaunch.
   const {service_order:_order,hidden_services:_hidden,...baselinePreferences}=require('../src/core/preferences_store').DEFAULTS;

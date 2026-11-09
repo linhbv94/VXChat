@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
 const { ServiceState, initialServiceState } = require('../core/service_state');
+const { WindowStateStore } = require('../core/window_state');
 const { primaryWindowOptions } = require('./window_chrome');
 const { StateStore, initialState } = require('../core/state_store');
 const { PreferencesStore, DEFAULTS } = require('../core/preferences_store');
@@ -34,7 +35,7 @@ if (qaProfile) {
   if (!releaseQA && (app.isPackaged || !path.basename(qaProfile).startsWith('vxchat_shell_fixture_') || fs.realpathSync(path.dirname(qaProfile)) !== fs.realpathSync(os.tmpdir()))) throw new Error('invalid_qa_profile');
   app.setPath('userData', qaProfile);
 } else app.setPath('userData', path.join(app.getPath('appData'), 'VXChat', 'chromium_v2'));
-let window = null; let engine = null; let preferences; let downloads; let ipc;
+let window = null; let engine = null; let preferences; let downloads; let ipc; let windowState = null;
 let quitting = false; let quitPending = false; let chromeHeight = 68;
 let updates = null; let updateNotice = null;
 let downloadPanel = null;
@@ -53,6 +54,10 @@ function localView(file) {
 }
 function dismissDownloadPanel(event,input){
   if(input.type==='keyDown'&&input.key==='Escape'&&downloadPanel?.attached){downloadPanel.hide();event.preventDefault();}
+}
+function hideDownloadPanel(){downloadPanel?.hide();}
+function dismissOnContentInput(_event,input){
+  if(downloadPanel?.attached&&['mouseDown','gestureTapDown','mouseWheel'].includes(input?.type))downloadPanel.hide();
 }
 function openUtility(role) {
   const existing = secondary.get(role);
@@ -109,26 +114,39 @@ async function createWindow() {
   const serviceState = await recoverable(serviceFile, () => new ServiceState(serviceFile), initialServiceState); if (!serviceState) return;
   const stateFile = path.join(root, 'tabs_state_v2.json');
   const store = await recoverable(stateFile, () => { const value = new StateStore(stateFile); value.load(); return value; }, initialState); if (!store) return;
-  window = new BaseWindow({ width: 1200, height: 820, minWidth: 800, minHeight: 600, title: 'VXChat', backgroundColor: '#141821', ...primaryWindowOptions(process.platform), show: !qaProfile });
+  windowState = new WindowStateStore(path.join(root, 'window_state_v1.json'));
+  const initialWindow = windowState.restore(electron.screen);
+  window = new BaseWindow({ ...(initialWindow.x !== undefined ? { x: initialWindow.x, y: initialWindow.y } : {}), width: initialWindow.width, height: initialWindow.height, minWidth: 800, minHeight: 600, title: 'VXChat', backgroundColor: '#141821', ...primaryWindowOptions(process.platform), show: !qaProfile });
+  if (!qaProfile) {
+    if (initialWindow.full_screen) window.setFullScreen?.(true);
+    else if (initialWindow.maximized) window.maximize?.();
+  }
   const shellFile = uiFile('index'); const shellView = localView(shellFile); window.contentView.addChildView(shellView);
   const owners = new Map(); const changed = () => { if (engine) ipc?.broadcast('state', engine.snapshot()); updateNotice?.resize(); downloadPanel?.resize(); };
   const completionTracker=createDownloadFeedbackTracker({onCue:()=>downloadPanel?.show()});completionTracker.update([]);
   downloads = new DownloadRegistry({ shell: electron.shell, directory: app.getPath('downloads'), getPreferences: () => preferences.snapshot(), changed: () => {const records=downloads.snapshot();ipc?.broadcast('downloads',records);completionTracker.update(records);} });
   const policy = new SessionPolicy({ session, dialog, window, resolveOwner: wc => owners.get(wc), permissionStore, downloads, systemPreferences: electron.systemPreferences, getLanguage, contentsFromFrame: frame => electron.webContents.fromFrame(frame), selectDisplaySource: createDisplayPicker({ desktopCapturer: electron.desktopCapturer, Menu, window, getLanguage }) });
-  engine = new TabEngine({ store, onChange: changed, createOwner: args => new ContentOwner({ ...args, electron, window, sessionPolicy: policy, register: (wc, owner) => {owners.set(wc, owner);wc.on('before-input-event',dismissDownloadPanel);}, unregister: wc => {owners.delete(wc);wc.removeListener('before-input-event',dismissDownloadPanel);}, changed, getLanguage, serviceState, getZoom: id => preferences.snapshot().zoom_levels[id] || 1, getChromeHeight: () => chromeHeight, getStartURL: id => id === 'slack' ? preferences.snapshot().slack_workspace_url : null }) });
+  engine = new TabEngine({ store, onChange: changed, createOwner: args => new ContentOwner({ ...args, electron, window, sessionPolicy: policy, register: (wc, owner) => {owners.set(wc, owner);wc.on('before-input-event',dismissDownloadPanel);wc.on('input-event',dismissOnContentInput);wc.on('context-menu',hideDownloadPanel);wc.on('focus',hideDownloadPanel);}, unregister: wc => {owners.delete(wc);wc.removeListener('before-input-event',dismissDownloadPanel);wc.removeListener('input-event',dismissOnContentInput);wc.removeListener('context-menu',hideDownloadPanel);wc.removeListener('focus',hideDownloadPanel);}, changed, getLanguage, serviceState, getZoom: id => preferences.snapshot().zoom_levels[id] || 1, getChromeHeight: () => chromeHeight, getStartURL: id => id === 'slack' ? preferences.snapshot().slack_workspace_url : null }) });
+  let boundsTimer = null;
+  const scheduleBoundsSave = () => {
+    if (boundsTimer) clearTimeout(boundsTimer);
+    boundsTimer = setTimeout(() => { boundsTimer = null; windowState?.recordWindow(window); }, 150);
+    boundsTimer.unref?.();
+  };
   const resize = () => {
     if (window.isDestroyed()) return;
     const { width } = window.getContentBounds(); shellView.setBounds({ x: 0, y: 0, width, height: chromeHeight });
     engine.owners.get(engine.state.active_tab_id)?.resize();
     updateNotice?.resize();
     downloadPanel?.resize();
+    scheduleBoundsSave();
   };
   const savePreferences = work => {
     let value; try { value = work(); } catch (error) { if (['invalid_preferences', 'invalid_workspace_url'].includes(error.message)) throw error; throw new Error('config_write_failed'); }
     for (const owner of engine.owners.values()) owner.applyZoom();
     ipc.broadcast('preferences', value); buildMenu(); return { preferences: value };
   };
-  ipc = installIPC({ ipcMain, shellContents: shellView.webContents, shellURL: pathToFileURL(shellFile).href, engine, onSettings: () => openUtility('settings'), dispatch: async (command, client) => {
+  ipc = installIPC({ ipcMain, shellContents: shellView.webContents, shellURL: pathToFileURL(shellFile).href, engine, onSettings: () => { downloadPanel?.hide(); openUtility('settings'); }, dispatch: async (command, client) => {
     switch (command.action) {
       case 'preferences_get': return { preferences: preferences.snapshot() };
       case 'preferences_update': return savePreferences(() => preferences.update(command.patch));
@@ -154,6 +172,7 @@ async function createWindow() {
       case 'window_close': client.close?.(); return {};
       case 'downloads': downloadPanel?.hide();openUtility('downloads'); return {};
       case 'download_panel': downloadPanel?.toggle();return {};
+      case 'download_panel_hide': downloadPanel?.hide();return {};
       case 'download_list': return { downloads: downloads.snapshot() };
       case 'download_cancel': downloads.cancel(command.id); return {};
       case 'download_open': await downloads.open(command.id); return {};
@@ -162,7 +181,7 @@ async function createWindow() {
       case 'permission_list': return { permissions: permissionStore.snapshot() };
       case 'permission_revoke': permissionStore.revoke(command.id); return { permissions: permissionStore.snapshot() };
       case 'slack_open': { const id = await engine.add('slack'); await engine.home(id); window.show(); window.focus(); return {}; }
-      case 'app_menu': Menu.getApplicationMenu()?.popup({ window }); return {};
+      case 'app_menu': downloadPanel?.hide(); Menu.getApplicationMenu()?.popup({ window }); return {};
       case 'layout': chromeHeight = command.height; resize(); return {};
       default: throw new Error('invalid_command');
     }
@@ -173,11 +192,11 @@ async function createWindow() {
   // Dev fixtures have no update notice WebContents and never contact Releases.
   if (app.isPackaged) { const file = uiFile('update_notice'); updateNotice = new UpdateNotice({window,view:localView(file),file,ipc}); }
   shellView.webContents.once('did-finish-load', changed);
-  window.on('resize', resize); resize();
+  window.on('resize', resize); window.on('move', scheduleBoundsSave); resize();
   await shellView.webContents.loadFile(shellFile); engine.start(); resize();
   await recordReleaseQA(app,session,releaseQA);
   if (app.isPackaged) void updates.check();
-  window.on('close', event => { if (!quitting) { event.preventDefault(); window.hide(); } });
+  window.on('close', event => { windowState?.recordWindow(window); if (!quitting) { event.preventDefault(); window.hide(); } });
   window.on('closed', () => {
     for (const utility of secondary.values()) if (!utility.isDestroyed()) utility.destroy();
     downloadPanel?.dispose();updateNotice?.dispose(); updates?.dispose(); ipc(); engine.dispose(); downloads.dispose(); if (!shellView.webContents.isDestroyed()) shellView.webContents.close({ waitForBeforeUnload: false }); window = null;
@@ -192,10 +211,12 @@ else {
   ready.catch(error => { if (qaProfile) { console.error(error.stack); app.exit(1); return; } dialog.showErrorBox('VXChat', t('startupFailed')); quitting = true; engine?.dispose(); downloads?.dispose(); app.quit(); });
   app.on('activate', () => { if (window) window.show(); });
   app.on('before-quit', event => {
+    windowState?.recordWindow(window);
     if (quitting || !engine) return;
     event.preventDefault(); if (quitPending) return; quitPending = true;
     void engine.enqueue(async () => {
       for (const owner of engine.owners.values()) if (!await owner.confirmClose()) return;
+      windowState?.recordWindow(window);
       quitting = true;
       for (const utility of secondary.values()) if (!utility.isDestroyed()) utility.destroy();
       engine.dispose(); downloads.dispose(); app.quit();

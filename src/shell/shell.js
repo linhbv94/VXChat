@@ -6,8 +6,11 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const ICON_PATHS = {
   messenger: 'M32,7.51c-13.8,0-24.49,10.11-24.49,23.76,0,7.14,2.93,13.31,7.69,17.57.4.36.64.86.66,1.4l.13,4.36c.04,1.39,1.48,2.29,2.75,1.73l4.86-2.15c.41-.18.87-.22,1.31-.1,2.23.61,4.61.94,7.09.94,13.8,0,24.49-10.11,24.49-23.76S45.8,7.51,32,7.51ZM47.18,24.93l-8.53,13.18h0c-.43.67-1.33.86-1.99.43l-7.9-5.11c-.31-.2-.7-.19-1,.01l-8.9,6.14c-1.3.9-2.89-.65-2.03-1.97l8.53-13.18c.43-.67,1.33-.86,1.99-.43l7.9,5.11c.31.2.7.19,1-.01l8.9-6.14c1.3-.9,2.89.65,2.03,1.97Z',
   zalo: 'M29.72,57.42c-5.73,0-9.5-.76-12.99-2.64-3.27-1.75-5.79-4.28-7.5-7.5-1.87-3.49-2.64-7.26-2.64-12.99v-4.4c0-5.74.76-9.5,2.64-12.99,1.75-3.27,4.28-5.79,7.5-7.5.37-.2.75-.39,1.14-.57.07-.03.14-.05.21-.05.16,0,.32.08.41.22.14.2.11.47-.07.64,0,0-.08.07-.08.07-8.08,7.78-8.99,24.67-1.9,34.16,1.2,1.77.3,4.54-1.27,6.35.19.01.38.02.58.02,1.92,0,4.22-.54,6.02-1.41.07-.03.14-.05.22-.05.08,0,.17.02.24.06,4.06,2.24,9.33,3.48,14.86,3.48,6.01,0,11.62-1.43,15.8-4.02.08-.05.17-.08.26-.08.13,0,.26.05.36.15.16.17.19.43.05.63-1.67,2.46-3.85,4.41-6.46,5.79-3.49,1.87-7.26,2.64-12.99,2.64h-4.4ZM47.4,36.75c-2.91,0-5.28-2.37-5.28-5.28s2.37-5.28,5.28-5.28,5.28,2.37,5.28,5.28-2.37,5.28-5.28,5.28ZM47.4,29.19c-1.27,0-2.31,1.03-2.31,2.31s1.03,2.31,2.31,2.31,2.31-1.03,2.31-2.31-1.03-2.31-2.31-2.31ZM32.73,36.75c-2.89,0-5.24-2.35-5.24-5.24s2.35-5.24,5.24-5.24c.82,0,1.62.19,2.35.56.08-.18.25-.3.46-.3h1.95c.28,0,.5.22.5.5v9.14c0,.28-.22.5-.5.5h-1.12c-.46,0-.87-.24-1.11-.59-.78.44-1.64.67-2.53.67ZM32.73,29.23c-1.26,0-2.29,1.03-2.29,2.29s1.03,2.29,2.29,2.29,2.29-1.03,2.29-2.29-1.03-2.29-2.29-2.29ZM39.86,36.68c-.66,0-1.2-.54-1.2-1.2v-11.39c0-.28.22-.5.5-.5h2.08c.28,0,.5.22.5.5v12.09c0,.28-.22.5-.5.5h-1.38ZM17.49,36.68c-.28,0-.5-.22-.5-.5v-.53c0-.72.16-1.1.45-1.52l6.02-7.46h-5.7c-.28,0-.5-.22-.5-.5v-2.08c0-.28.22-.5.5-.5h9.73c.28,0,.5.22.5.5v.28c0,.54-.06,1.14-.52,1.82,0,.01-.05.08-.06.09-.08.1-.25.31-.35.42l-5.6,7.03h6.05c.28,0,.5.22.5.5v1.12c0,.74-.6,1.33-1.33,1.33h-9.18Z',
-  slack: 'M17.7,38.53c0,2.87-2.32,5.19-5.19,5.19s-5.19-2.32-5.19-5.19,2.32-5.19,5.19-5.19h5.19v5.19ZM20.3,38.53c0-2.87,2.32-5.19,5.19-5.19s5.19,2.32,5.19,5.19v12.98c0,2.87-2.32,5.19-5.19,5.19s-5.19-2.32-5.19-5.19v-12.98ZM25.49,17.68c-2.87,0-5.19-2.32-5.19-5.19s2.32-5.19,5.19-5.19,5.19,2.32,5.19,5.19v5.19h-5.19ZM25.49,20.32c2.87,0,5.19,2.32,5.19,5.19s-2.32,5.19-5.19,5.19h-13.02c-2.87,0-5.19-2.32-5.19-5.19s2.32-5.19,5.19-5.19h13.02ZM46.3,25.51c0-2.87,2.32-5.19,5.19-5.19s5.19,2.32,5.19,5.19-2.32,5.19-5.19,5.19h-5.19v-5.19ZM43.7,25.51c0,2.87-2.32,5.19-5.19,5.19s-5.19-2.32-5.19-5.19v-13.02c0-2.87,2.32-5.19,5.19-5.19s5.19,2.32,5.19,5.19c0,0,0,13.02,0,13.02ZM38.51,46.32c2.87,0,5.19,2.32,5.19,5.19s-2.32,5.19-5.19,5.19-5.19-2.32-5.19-5.19v-5.19h5.19ZM38.51,43.72c-2.87,0-5.19-2.32-5.19-5.19s2.32-5.19,5.19-5.19h13.02c2.87,0,5.19,2.32,5.19,5.19s-2.32,5.19-5.19,5.19h-13.02Z',
-  chatgpt: 'M34.54,58.02c-3.65,0-7.15-1.49-9.68-4.1-.76.13-1.53.19-2.29.19-4.86,0-9.38-2.62-11.8-6.83-1.86-3.18-2.33-6.97-1.32-10.5-3.65-4.39-4.18-10.55-1.3-15.52,1.82-3.2,4.88-5.51,8.44-6.4,1.97-5.33,7.03-8.88,12.76-8.88h.1c3.66,0,7.15,1.49,9.69,4.11.76-.13,1.53-.2,2.29-.2,4.86,0,9.38,2.62,11.8,6.83,1.86,3.17,2.33,6.97,1.32,10.5,3.64,4.38,4.18,10.55,1.3,15.52-1.82,3.2-4.88,5.51-8.44,6.4-1.97,5.34-7.03,8.88-12.76,8.88h-.11ZM30.49,51.66c1.25.71,2.67,1.09,4.13,1.09,4.62,0,8.38-3.77,8.38-8.38v-11.13l-2.29-1.32v12.32c0,.94-.5,1.82-1.33,2.29l-8.89,5.13ZM14.22,40.52c0,1.44.39,2.87,1.12,4.12,1.5,2.58,4.28,4.19,7.27,4.19,1.46,0,2.9-.39,4.18-1.12l9.63-5.56v-2.65s-10.67,6.16-10.67,6.16c-.4.23-.85.36-1.32.36s-.92-.12-1.32-.36l-8.89-5.14ZM46.95,30.58c.82.47,1.32,1.35,1.31,2.29v10.27c1.24-.73,2.29-1.77,3.01-3.03,2.31-4,.94-9.14-3.07-11.45l-9.64-5.56-2.29,1.32,10.67,6.16ZM12.65,24.02c-2.2,3.98-.81,9.03,3.14,11.32l9.64,5.57,2.29-1.32-10.67-6.16c-.82-.47-1.32-1.34-1.32-2.29v-10.27c-1.24.73-2.28,1.77-3.01,3.03l-.07.12ZM32,37.1l4.42-2.55v-5.1l-4.42-2.55-4.42,2.55v5.1l4.42,2.55ZM23.29,32.08v-12.31c0-.94.51-1.82,1.33-2.29l8.89-5.13c-1.25-.71-2.68-1.09-4.13-1.09h0c-4.62,0-8.38,3.76-8.38,8.37v11.13l2.3,1.32ZM27.58,24.5l10.67-6.16c.4-.23.86-.36,1.32-.36s.92.12,1.32.36l8.89,5.13c-.01-1.43-.4-2.85-1.12-4.11-1.49-2.59-4.28-4.2-7.27-4.2-1.46,0-2.9.39-4.18,1.12l-9.63,5.56v2.65Z'
+  slack: 'M17.7,38.53c0,2.87-2.32,5.19-5.19,5.19s-5.19-2.32-5.19-5.19,2.32-5.19,5.19-5.19h5.19v5.19ZM20.3,38.53c0-2.87,2.32-5.19,5.19-5.19s5.19,2.32,5.19,5.19v12.98c0,2.87-2.32,5.19-5.19,5.19s-5.19-2.32-5.19-5.19v-12.98ZM25.49,17.68c-2.87,0-5.19-2.32-5.19-5.19s2.32-5.19,5.19-5.19,5.19,2.32,5.19,5.19v5.19h-5.19ZM25.49,20.32c2.87,0,5.19,2.32,5.19,5.19s-2.32,5.19-5.19,5.19h-13.02c-2.87,0-5.19-2.32-5.19-5.19s2.32-5.19,5.19-5.19h13.02ZM46.3,25.51c0-2.87,2.32-5.19,5.19-5.19s5.19,2.32,5.19,5.19-2.32,5.19-5.19,5.19h-5.19v-5.19ZM43.7,25.51c0,2.87-2.32,5.19-5.19,5.19s-5.19-2.32-5.19-5.19v-13.02c0-2.87,2.32-5.19,5.19-5.19s5.19,2.32,5.19,5.19c0,0,0,13.02,0,13.02ZM38.51,46.32c2.87,0,5.19,2.32,5.19,5.19s-2.32,5.19-5.19,5.19-5.19-2.32-5.19-5.19v-5.19h5.19ZM38.51,43.72c-2.87,0-5.19-2.32-5.19-2.32s2.32-5.19,5.19-5.19h13.02c2.87,0,5.19,2.32,5.19,5.19s-2.32,5.19-5.19,5.19h-13.02Z',
+  chatgpt: 'M34.54,58.02c-3.65,0-7.15-1.49-9.68-4.1-.76.13-1.53.19-2.29.19-4.86,0-9.38-2.62-11.8-6.83-1.86-3.18-2.33-6.97-1.32-10.5-3.65-4.39-4.18-10.55-1.3-15.52,1.82-3.2,4.88-5.51,8.44-6.4,1.97-5.33,7.03-8.88,12.76-8.88h.1c3.66,0,7.15,1.49,9.69,4.11.76-.13,1.53-.2,2.29-.2,4.86,0,9.38,2.62,11.8,6.83,1.86,3.17,2.33,6.97,1.32,10.5,3.64,4.38,4.18,10.55,1.3,15.52-1.82,3.2-4.88,5.51-8.44,6.4-1.97,5.34-7.03,8.88-12.76,8.88h-.11ZM30.49,51.66c1.25.71,2.67,1.09,4.13,1.09,4.62,0,8.38-3.77,8.38-8.38v-11.13l-2.29-1.32v12.32c0,.94-.5,1.82-1.33,2.29l-8.89,5.13ZM14.22,40.52c0,1.44.39,2.87,1.12,4.12,1.5,2.58,4.28,4.19,7.27,4.19,1.46,0,2.9-.39,4.18-1.12l9.63-5.56v-2.65s-10.67,6.16-10.67,6.16c-.4.23-.85.36-1.32.36s-.92-.12-1.32-.36l-8.89-5.14ZM46.95,30.58c.82.47,1.32,1.35,1.31,2.29v10.27c1.24-.73,2.29-1.77,3.01-3.03,2.31-4,.94-9.14-3.07-11.45l-9.64-5.56-2.29,1.32,10.67,6.16ZM12.65,24.02c-2.2,3.98-.81,9.03,3.14,11.32l9.64,5.57,2.29-1.32-10.67-6.16c-.82-.47-1.32-1.34-1.32-2.29v-10.27c-1.24.73-2.28,1.77-3.01,3.03l-.07.12ZM32,37.1l4.42-2.55v-5.1l-4.42-2.55-4.42,2.55v5.1l4.42,2.55ZM23.29,32.08v-12.31c0-.94.51-1.82,1.33-2.29l8.89-5.13c-1.25-.71-2.68-1.09-4.13-1.09h0c-4.62,0-8.38,3.76-8.38,8.37v11.13l2.3,1.32ZM27.58,24.5l10.67-6.16c.4-.23.86-.36,1.32-.36s.92.12,1.32.36l8.89,5.13c-.01-1.43-.4-2.85-1.12-4.11-1.49-2.59-4.28-4.2-7.27-4.2-1.46,0-2.9.39-4.18,1.12l-9.63,5.56v2.65Z',
+  gmail: 'M11.5,13c-2.49,0-4.5,2.01-4.5,4.5v29c0,2.49,2.01,4.5,4.5,4.5h6.5V27.6l14,10.5,14-10.5V51h6.5c2.49,0,4.5-2.01,4.5-4.5v-29c0-2.49-2.01-4.5-4.5-4.5-1.01,0-1.99.34-2.79.96L32,27.2,14.29,13.96c-.8-.62-1.78-.96-2.79-.96Z',
+  gemini: 'M56.11,31.72c-.1-.39-.41-.7-.8-.8-1.5-.38-2.97-.88-4.4-1.49-3.65-1.55-6.96-3.79-9.77-6.59-3.91-3.92-6.7-8.81-8.08-14.17-.15-.59-.75-.95-1.34-.8-.39.1-.7.41-.8.8-1.38,5.36-4.17,10.25-8.08,14.17-2.81,2.8-6.12,5.04-9.77,6.59-1.43.61-2.89,1.11-4.4,1.49-.59.15-.95.74-.81,1.33.1.4.41.71.81.81,1.5.38,2.96.87,4.4,1.49,3.65,1.55,6.96,3.79,9.77,6.59,3.91,3.92,6.7,8.81,8.08,14.17.15.59.74.95,1.33.81.4-.1.71-.41.81-.81.38-1.5.87-2.97,1.49-4.4,1.55-3.65,3.79-6.96,6.59-9.77,3.92-3.91,8.81-6.7,14.17-8.08.59-.15.95-.75.8-1.34Z',
+  meet: 'M12,16c-2.76,0-5,2.24-5,5v22c0,2.76,2.24,5,5,5h24c2.76,0,5-2.24,5-5v-5.5l11.2,7.47c1.66,1.1,3.8-.09,3.8-2.08v-21.78c0-1.99-2.14-3.18-3.8-2.08l-11.2,7.47v-5.5c0-2.76-2.24-5-5-5H12Z'
 };
 
 const STRINGS = {
@@ -48,8 +51,9 @@ let current = null;
 let currentTheme = 'system';
 let currentLang = 'vi';
 let draggedServiceId = null;
-let serviceOrder = ['messenger','zalo','slack','chatgpt'];
+let serviceOrder = ['messenger','zalo','slack','chatgpt','gmail','gemini','meet'];
 let hiddenServices = [];
+const PLACEHOLDER_PLUS = { messenger: 'Messenger', gmail: 'Gmail', gemini: 'Gemini', meet: 'Google Meet' };
 
 function applyTheme(theme) {
   currentTheme = theme;
@@ -180,13 +184,14 @@ function render(state){
     }
     primary.dataset.launchService=id;primary.title=`${definition.label} · ${currentLang==='en'?(tabs.length?'Open · drag to reorder':'Not open · click to open'):(tabs.length?'Đang mở · kéo để sắp xếp':'Chưa mở · bấm để mở')}`;group.append(primary);
     for(const tab of tabs.slice(1))group.append(tabButton(tab));
-    if(['messenger','chatgpt'].includes(id)){
+    if(Object.hasOwn(PLACEHOLDER_PLUS,id)||id==='chatgpt'){
       const plus=document.createElement('button');plus.type='button';plus.className='service-plus';plus.textContent='+';plus.dataset.addService=id;
-      plus.title=id==='messenger'
-        ?(currentLang==='en'?'Add Messenger account — coming soon':'Thêm tài khoản Messenger — chưa hỗ trợ')
+      const acct=PLACEHOLDER_PLUS[id];
+      plus.title=acct
+        ?(currentLang==='en'?`Add ${acct} account — coming soon`:`Thêm tài khoản ${acct} — chưa hỗ trợ`)
         :(currentLang==='en'?'New ChatGPT tab · same signed-in account':'Mở thêm tab ChatGPT · cùng tài khoản đang đăng nhập');
       plus.setAttribute('aria-label',plus.title);
-      if(id==='messenger'){plus.setAttribute('aria-disabled','true');plus.classList.add('is-placeholder');}
+      if(acct){plus.setAttribute('aria-disabled','true');plus.classList.add('is-placeholder');}
       else plus.onclick=()=>command({action:'add',service_id:id});group.append(plus);
     }
     group.onkeydown=event=>{
@@ -261,13 +266,37 @@ function renderWorkflow(state) {
 document.getElementById('setup-btn').onclick = () => { if (current?.active_tab_id) void command({ action: 'setup_reset', tab_id: current.active_tab_id }); };
 document.getElementById('menu-btn').onclick = () => command({ action: 'app_menu' });
 void window.vxchat.command({ action: 'metadata' }).then(result => { if (result.ok) document.documentElement.dataset.platform = result.metadata.platform; }).catch(() => {});
+const DOWNLOAD_SVG_PATHS = {
+  download: ['M12 15V3', 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'm7 10 5 5 5-5'],
+  check: ['M20 6 9 17l-5-5']
+};
+function setDownloadIcon(kind) {
+  const icon = document.getElementById('downloads-icon');
+  if (!icon) return;
+  icon.dataset.icon = kind;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '15');
+  svg.setAttribute('height', '15');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', kind === 'check' ? '2.5' : '2.4');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const d of DOWNLOAD_SVG_PATHS[kind] || DOWNLOAD_SVG_PATHS.download) {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  }
+  icon.replaceChildren(svg);
+}
 let downloadCueTimer = null;
 function clearDownloadCue() {
   const btn = document.getElementById('downloads-btn');
-  const icon = document.getElementById('downloads-icon');
   const live = document.getElementById('downloads-live');
   if (btn) btn.classList.remove('has-completed');
-  if (icon) icon.textContent = '↓';
+  setDownloadIcon('download');
   if (live) live.textContent = '';
   if (downloadCueTimer) {
     clearTimeout(downloadCueTimer);
@@ -278,11 +307,10 @@ function clearDownloadCue() {
 const downloadTracker = window.vxchatDownloadFeedback?.createDownloadFeedbackTracker?.({
   onCue: completedItems => {
     const btn = document.getElementById('downloads-btn');
-    const icon = document.getElementById('downloads-icon');
     const live = document.getElementById('downloads-live');
     if (!btn || !completedItems.length) return;
     btn.classList.add('has-completed');
-    if (icon) icon.textContent = '✓';
+    setDownloadIcon('check');
     if (live && window.vxchatDownloadFeedback?.formatCueText) {
       live.textContent = window.vxchatDownloadFeedback.formatCueText(completedItems, currentLang);
     }
@@ -297,6 +325,9 @@ document.getElementById('downloads-btn').onclick = () => {
   clearDownloadCue();
   void command({ action: 'download_panel' });
 };
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest('#downloads-btn')) void window.vxchat.command({ action: 'download_panel_hide' });
+});
 let reportedHeight = 0;
 new ResizeObserver(() => {
   const height = Math.max(68, Math.min(220, Math.ceil(document.getElementById('chrome').getBoundingClientRect().height)));

@@ -4,7 +4,10 @@ const SERVICES = Object.freeze({
   messenger: Object.freeze({ label: 'Messenger', url: 'https://www.facebook.com/messages/t', hosts: ['facebook.com', 'messenger.com'], multiTab: false }),
   zalo: Object.freeze({ label: 'Zalo', url: 'https://chat.zalo.me/', hosts: ['zalo.me'], multiTab: false }),
   slack: Object.freeze({ label: 'Slack', url: 'https://app.slack.com/', hosts: ['slack.com'], multiTab: false }),
-  chatgpt: Object.freeze({ label: 'ChatGPT', url: 'https://chatgpt.com/', hosts: ['chatgpt.com'], multiTab: true })
+  chatgpt: Object.freeze({ label: 'ChatGPT', url: 'https://chatgpt.com/', hosts: ['chatgpt.com'], multiTab: true }),
+  gmail: Object.freeze({ label: 'Gmail', url: 'https://mail.google.com/', hosts: ['mail.google.com', 'meet.google.com'], multiTab: false, partition: 'persist:service-google' }),
+  gemini: Object.freeze({ label: 'Gemini', url: 'https://gemini.google.com/app', hosts: ['gemini.google.com', 'meet.google.com'], multiTab: false, partition: 'persist:service-google' }),
+  meet: Object.freeze({ label: 'Meet', url: 'https://meet.google.com/', hosts: ['meet.google.com'], multiTab: false, partition: 'persist:service-google' })
 });
 const AUTH_HOSTS = Object.freeze(['accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'auth.openai.com', 'auth0.openai.com', 'id.zalo.me']);
 
@@ -13,7 +16,7 @@ function service(id) {
   return SERVICES[id];
 }
 function defaultInstances() {
-  return Object.keys(SERVICES).map(id => ({ id: `default_${id}`, service_id: id, label: service(id).label, partition: `persist:service-${id}` }));
+  return Object.keys(SERVICES).map(id => ({ id: `default_${id}`, service_id: id, label: service(id).label, partition: service(id).partition || `persist:service-${id}` }));
 }
 function httpsURL(value) {
   try {

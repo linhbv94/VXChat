@@ -1,12 +1,14 @@
 'use strict';
+const { SERVICES } = require('../core/services');
+const SERVICE_IDS = Object.keys(SERVICES);
 const SHAPES = {
   state: [], add: ['service_id'], select: ['tab_id'], close: ['tab_id'], reload: ['tab_id'], home: ['tab_id'], confirm_setup: ['tab_id'], setup_reset: ['tab_id'], app_menu: [], reorder: ['tab_ids'],
-  focus_popup: ['tab_id', 'popup_id'], close_popup: ['tab_id', 'popup_id'], settings: [], downloads: [], download_panel: [],
+  focus_popup: ['tab_id', 'popup_id'], close_popup: ['tab_id', 'popup_id'], settings: [], downloads: [], download_panel: [], download_panel_hide: [],
   preferences_get: [], preferences_update: ['patch'], preferences_migrate: ['patch'], preferences_reset: [], metadata: [], repository_open: [], window_close: [],
   permission_list: [], permission_revoke: ['id'], download_list: [], download_cancel: ['id'], download_open: ['id'], download_reveal: ['id'], download_clear: [], layout: ['height'], slack_open: [], download_directory_choose: [], zoom_update: ['instance_id','factor'], update_state:[],update_check:[],update_install:[],update_dismiss:[],update_layout:['height']
 };
 const ROLES = {
-  shell: ['state', 'add', 'select', 'close', 'reload', 'home', 'confirm_setup', 'setup_reset', 'app_menu', 'reorder', 'focus_popup', 'close_popup', 'settings', 'downloads', 'download_panel', 'preferences_get', 'preferences_update', 'preferences_migrate', 'metadata', 'layout'],
+  shell: ['state', 'add', 'select', 'close', 'reload', 'home', 'confirm_setup', 'setup_reset', 'app_menu', 'reorder', 'focus_popup', 'close_popup', 'settings', 'downloads', 'download_panel', 'download_panel_hide', 'preferences_get', 'preferences_update', 'preferences_migrate', 'metadata', 'layout'],
   settings: ['preferences_get', 'preferences_update', 'preferences_reset', 'metadata', 'repository_open', 'window_close', 'permission_list', 'permission_revoke', 'slack_open','download_directory_choose','zoom_update','update_state','update_check','update_install','update_dismiss'],
   updates:['preferences_get','update_state','update_check','update_install','update_dismiss','update_layout'],
   downloads: ['preferences_get', 'download_list', 'download_cancel', 'download_open', 'download_reveal', 'download_clear', 'window_close','downloads']
@@ -20,7 +22,7 @@ function validCommand(command) {
     if (key === 'height') return Number.isInteger(value) && value >= 68 && value <= 220;
     if (key === 'factor') return Number.isFinite(value) && value >= 0.5 && value <= 2;
     if (key === 'tab_ids') return Array.isArray(value) && value.length <= 100 && value.every(v => typeof v === 'string' && v.length > 0 && v.length <= 80);
-    if (key === 'patch') return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length <= 4 && Object.entries(value).every(([k, v]) => ['service_order','hidden_services'].includes(k) ? Array.isArray(v) && v.length <= 4 && new Set(v).size === v.length && v.every(id => ['messenger','zalo','slack','chatgpt'].includes(id)) && (k !== 'service_order' || v.length === 4) : k === 'ask_download_location' ? typeof v === 'boolean' : ['theme', 'language', 'slack_workspace_url'].includes(k) && (v === null || typeof v === 'string' && v.length <= 2048));
+    if (key === 'patch') return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length <= 4 && Object.entries(value).every(([k, v]) => ['service_order','hidden_services'].includes(k) ? Array.isArray(v) && v.length <= SERVICE_IDS.length && new Set(v).size === v.length && v.every(id => SERVICE_IDS.includes(id)) && (k !== 'service_order' || v.length === SERVICE_IDS.length) : k === 'ask_download_location' ? typeof v === 'boolean' : ['theme', 'language', 'slack_workspace_url'].includes(k) && (v === null || typeof v === 'string' && v.length <= 2048));
     return typeof value === 'string' && value.length > 0 && value.length <= 80;
   });
 }

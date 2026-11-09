@@ -14,7 +14,7 @@ function installNavigationScope(enabled, hosts, purpose, authPattern) {
       const u = new URL(value, location.href);
       return ['http:', 'https:'].includes(u.protocol) && !u.username && !u.password &&
         !(u.protocol === 'https:' && !u.port && hosts.includes(u.hostname) &&
-          (/^\/messages(?:\/|$)/.test(u.pathname) || (purpose === 'call' && /^\/(?:groupcall|call|calls|videocall)(?:\/|$)/i.test(u.pathname)) || authPath.test(u.pathname)));
+          (/^\/(?:messages|messenger_media)(?:\/|$)/.test(u.pathname) || (purpose === 'call' && /^\/(?:groupcall|call|calls|videocall)(?:\/|$)/i.test(u.pathname)) || authPath.test(u.pathname)));
     } catch { return false; }
   };
   let pending = null;

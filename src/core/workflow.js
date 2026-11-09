@@ -1,6 +1,6 @@
 'use strict';
 const { navigationKind, httpsURL, externalWebURL, ownedBlobURL } = require('./services');
-const { serviceScopeDecision, AUTH_PATH } = require('./service_scope');
+const { serviceScopeDecision, AUTH_PATH, MESSENGER_CHAT_PATH } = require('./service_scope');
 function routeStage(serviceID, value) {
   const url = httpsURL(value);
   if (!url) return value === 'about:blank' ? 'blank' : 'unknown';
@@ -9,7 +9,7 @@ function routeStage(serviceID, value) {
   if (kind !== 'service') return 'external';
   if (serviceID === 'zalo') return url.hostname === 'chat.zalo.me' && !url.port ? 'client' : 'service';
   if (serviceID === 'slack') return url.hostname === 'app.slack.com' && /^\/client\/[A-Za-z0-9]+(?:\/|$)/.test(url.pathname) ? 'client' : 'auth';
-  if (serviceID === 'messenger') return /^\/messages(?:\/|$)/.test(url.pathname) ? 'client' : 'setup';
+  if (serviceID === 'messenger') return MESSENGER_CHAT_PATH.test(url.pathname) ? 'client' : 'setup';
   if (serviceID === 'chatgpt' && /^\/(?:c|g)\//.test(url.pathname)) return 'client';
   return 'service';
 }
@@ -39,6 +39,7 @@ function canHandoff(serviceID, value, primaryURL) {
   if (routeStage(serviceID, value) !== 'client') return false;
   if (serviceID === 'slack') return /^\/client\/T[A-Z0-9]*(?:\/[CGD][A-Z0-9]*)?\/?$/.test(httpsURL(value).pathname);
   if (serviceID === 'zalo') return routeStage(serviceID, primaryURL) === 'auth';
+  if (serviceID === 'messenger' && /^\/messenger_media(?:\/|$)/.test(httpsURL(value)?.pathname || '')) return true;
   return serviceID === 'messenger' && ['auth', 'setup'].includes(routeStage(serviceID, primaryURL));
 }
 class Workflow {

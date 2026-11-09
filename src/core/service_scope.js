@@ -1,16 +1,22 @@
 'use strict';
 const { httpsURL, externalWebURL } = require('./services');
 const MESSENGER_HOSTS = ['facebook.com', 'www.facebook.com', 'messenger.com', 'www.messenger.com'];
+const MESSENGER_CHAT_PATH = /^\/(?:messages|messenger_media)(?:\/|$)/;
 const AUTH_PATH = /(?:^|\/)(?:login|signin|sign-in|auth|oauth|sso|checkpoint|recover|verify|authorize)(?:\.php)?(?:\/|$)/i;
 function messengerRoute(value) {
   const url = httpsURL(value);
   if (!url || url.port || !MESSENGER_HOSTS.includes(url.hostname)) return 'outside';
   if (AUTH_PATH.test(url.pathname)) return 'auth';
-  if (/^\/messages(?:\/|$)/.test(url.pathname)) return 'chat';
+  if (MESSENGER_CHAT_PATH.test(url.pathname)) return 'chat';
   if (/^\/(?:groupcall|call|calls|videocall)(?:\/|$)/i.test(url.pathname)) return 'call';
   return 'outside';
 }
+function meetRoute(value) {
+  const url = httpsURL(value);
+  return url && !url.port && url.hostname === 'meet.google.com' ? 'call' : 'outside';
+}
 function serviceScopeDecision(serviceID, value, { confirmed = false, purpose = 'primary', authFlow = false } = {}) {
+  if (['gmail', 'gemini'].includes(serviceID) && meetRoute(value) === 'call') return purpose === 'call' ? 'allow' : 'external';
   if (serviceID !== 'messenger') return null;
   if (value === 'about:blank' && purpose !== 'primary') return 'allow';
   if (!externalWebURL(value)) return 'block';
@@ -22,7 +28,7 @@ function serviceScopeDecision(serviceID, value, { confirmed = false, purpose = '
 }
 function windowPurpose(serviceID, value, authFlow = false) {
   if (authFlow) return 'auth';
-  if (serviceID === 'messenger' && messengerRoute(value) === 'call') return 'call';
+  if ((serviceID === 'messenger' && messengerRoute(value) === 'call') || (['gmail', 'gemini'].includes(serviceID) && meetRoute(value) === 'call')) return 'call';
   return 'auxiliary';
 }
-module.exports = { AUTH_PATH, MESSENGER_HOSTS, messengerRoute, serviceScopeDecision, windowPurpose };
+module.exports = { AUTH_PATH, MESSENGER_HOSTS, MESSENGER_CHAT_PATH, messengerRoute, meetRoute, serviceScopeDecision, windowPurpose };

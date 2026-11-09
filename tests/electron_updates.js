@@ -46,7 +46,7 @@ app.whenReady().then(async () => {
   if (process.env.VXCHAT_QA_OUTPUT) {main.showInactive(); await new Promise(r => setTimeout(r,150)); fs.writeFileSync(path.join(process.env.VXCHAT_QA_OUTPUT,'updates_en.png'),(await notice.view.webContents.capturePage()).toPNG()); main.hide();}
   await settingsView.webContents.executeJavaScript('window.vxchat.command({action:"update_dismiss"})');assert.equal(notice.attached,false);
   assert.equal(controller.snapshot().state,'available');
-  release = '1.0.2'; await controller.check(); assert.equal(notice.attached,true);
+  release = '1.1.0'; await controller.check(); assert.equal(notice.attached,true);
   await Promise.all([notice.view.webContents.executeJavaScript('document.querySelector("button.primary").click()'),settingsView.webContents.executeJavaScript('document.querySelector("#updates-controller button.primary").click()')]);
   await poll(() => downloads === 1);adapter.progress(42);
   await poll(() => settingsView.webContents.executeJavaScript('document.querySelector("#updates-controller").textContent.includes("42%")'));

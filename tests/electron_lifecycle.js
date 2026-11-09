@@ -36,6 +36,12 @@ app.whenReady().then(async () => {
   const wa = engine.owners.get(a).view.webContents; const wb = engine.owners.get(b).view.webContents;
   assert.notEqual(wa.id, wb.id); assert.equal(wa.session, wb.session);
   assert.notEqual(wa.session, engine.owners.get(engine.state.tabs.find(t => t.instance_id === 'default_slack').id).view.webContents.session);
+  const wGmail = engine.owners.get(engine.state.tabs.find(t => t.instance_id === 'default_gmail').id).view.webContents;
+  const wGemini = engine.owners.get(engine.state.tabs.find(t => t.instance_id === 'default_gemini').id).view.webContents;
+  const wMeet = engine.owners.get(engine.state.tabs.find(t => t.instance_id === 'default_meet').id).view.webContents;
+  assert.equal(wGmail.session, wGemini.session, 'Gmail and Gemini must share the Google profile session');
+  assert.equal(wGmail.session, wMeet.session, 'Meet must share the Google profile session');
+  assert.notEqual(wGmail.session, wa.session);
   const preferences = wa.getLastWebPreferences();
   assert.equal(preferences.nodeIntegration, false); assert.equal(preferences.contextIsolation, true); assert.equal(preferences.sandbox, true); assert.equal(preferences.preload, undefined);
   await wa.executeJavaScript('document.getElementById("draft").value="draft A"');
@@ -84,7 +90,7 @@ app.whenReady().then(async () => {
     await new Promise(r=>setTimeout(r,350));
     const after=sample('closed',round);
     assert.equal(after.contents,0);assert.equal(after.owners,0);assert.equal(after.registry,0);assert.equal(after.child_views,0);
-    assert.ok(cycleContents.every(wc=>wc.isDestroyed()));assert.equal(policy.configured.size,4,'Persistent service sessions must remain bounded by instances');
+    assert.ok(cycleContents.every(wc=>wc.isDestroyed()));assert.equal(policy.configured.size,5,'Persistent service sessions must remain bounded by partitions');
   }
   await new Promise(r=>setTimeout(r,1500));const final=sample('settled',12);
   const report={result:'PASS',cycles:12,views_opened_closed:36,allocation_mib_per_view:16,final,closed_samples:samples.filter(s=>s.phase==='closed'),samples,

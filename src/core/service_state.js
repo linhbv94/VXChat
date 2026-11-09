@@ -21,10 +21,20 @@ function workspaceID(value) {
   if (!url || url.hostname !== 'app.slack.com' || url.port) return null;
   return /^\/client\/(T[A-Z0-9]{1,79})(?:\/|$)/.exec(url.pathname)?.[1] || null;
 }
+function migrateServiceState(value) {
+  const expected = defaultInstances();
+  if (value?.schema_version === 1 && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.length < expected.length) {
+    const ids = new Set(value.entries.map(e => e?.instance_id));
+    if (ids.size === value.entries.length && value.entries.every(e => expected.some(i => i.id === e?.instance_id))) {
+      return { ...value, entries: [...value.entries, ...expected.filter(i => !ids.has(i.id)).map(i => ({ instance_id: i.id, setup_confirmed: false, workspace_id: null }))] };
+    }
+  }
+  return value;
+}
 class ServiceState {
   constructor(file = null) {
     this.file = file;
-    try { this.value = file ? validateServiceState(readJSON(file)) : initialServiceState(); }
+    try { this.value = file ? validateServiceState(migrateServiceState(readJSON(file))) : initialServiceState(); }
     catch (error) { if (error.code !== 'ENOENT') throw new Error('service_state_recovery_required', { cause: error }); this.value = initialServiceState(); }
   }
   entry(id) { const value = this.value.entries.find(e => e.instance_id === id); if (!value) throw new Error('unknown_instance'); return { ...value }; }

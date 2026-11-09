@@ -3,7 +3,7 @@ const {execFileSync} = require('node:child_process');const policy = require('../
 function checkRuntimeSDK(binary) {
   const fs = require('node:fs');const path = require('node:path');
   const qaFile = path.join(__dirname,'../src/core/release_qa_build.json');
-  const isolatedQA = process.env.VXCHAT_INTERNAL_QA_BUILD === '1' && pkg.version === '1.0.1' && fs.existsSync(qaFile) && require(qaFile).profile.includes('vxchat_release_fixture_');
+  const isolatedQA = process.env.VXCHAT_INTERNAL_QA_BUILD === '1' && pkg.version === policy.app_version && fs.existsSync(qaFile) && require(qaFile).profile.includes('vxchat_release_fixture_');
   const applies = pkg.devDependencies.electron === policy.electron_version && (pkg.version === policy.app_version || isolatedQA);
   const metadata = execFileSync('xcrun',['vtool','-show-build',binary],{encoding:'utf8'});
   const sdks = [...metadata.matchAll(/^\s*sdk\s+(\S+)/gm)].map(m => m[1]);

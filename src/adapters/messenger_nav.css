@@ -1,9 +1,15 @@
 /* Confirmed Messenger only. Nested theme roots redeclare this layout variable.
-   Preserve the website's flex, position and height rules; no theme changes. */
-html[data-vx-messenger-clean],
-html[data-vx-messenger-clean] body,
-html[data-vx-messenger-clean] body * {
+   Preserve the website's flex, position and height rules; no theme changes.
+   On /messenger_media/ (and inside [role="dialog"] lightboxes), keep the 56px
+   floating toolbar height so the Download/Share buttons are not clipped at top,
+   while still hiding the global Facebook banner/avatar bar. */
+html[data-vx-messenger-clean]:not([data-vx-messenger-media]),
+html[data-vx-messenger-clean]:not([data-vx-messenger-media]) body,
+html[data-vx-messenger-clean]:not([data-vx-messenger-media]) body * {
   --header-height: 0px !important;
+}
+html[data-vx-messenger-clean] :is([role="dialog"], [role="dialog"] *) {
+  --header-height: 56px !important;
 }
 html[data-vx-messenger-clean] :is(header[role="banner"], div[role="banner"], [data-pagelet="TopNav"]) {
   display: none !important;

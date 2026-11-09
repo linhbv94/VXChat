@@ -5,9 +5,10 @@
 .update-notice .vx-updates { width:100%; box-shadow:0 3px 8px #0005; }
 .vx-updates h3 { margin:0 24px 8px 0; font-size:13px; }
 .vx-updates p { margin:6px 0 12px; line-height:1.4; }
-.vx-updates button { border:1px solid var(--update-border); border-radius:6px; padding:7px 10px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
+.vx-updates button { border:1px solid var(--update-border); border-radius:6px; padding:7px 10px; background:transparent; color:inherit; font:inherit; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+.vx-updates button svg { flex-shrink:0; display:block; }
 .vx-updates button.primary { background:#407de8; color:#fff; font-weight:600; }
 .vx-updates button:disabled { opacity:.6; cursor:default; }
 .vx-updates button:focus-visible { outline:2px solid #679cf5; outline-offset:2px; }
-.vx-updates .update-dismiss { position:absolute; right:10px; top:8px; padding:3px 7px; font-size:16px; border:0; }
+.vx-updates .update-dismiss { position:absolute; right:10px; top:8px; padding:5px; font-size:16px; border:0; border-radius:6px; }
 .vx-updates progress { display:block; width:100%; height:5px; margin:10px 0; accent-color:#679cf5; }

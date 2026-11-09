@@ -37,11 +37,21 @@ function initialState() {
   const tabs = instances.map(i => ({ id: randomUUID(), instance_id: i.id, label: i.label }));
   return { schema_version: 2, instances, tabs, active_tab_id: tabs[0].id };
 }
+function migrateState(state) {
+  const expected = defaultInstances();
+  if (state?.schema_version === 2 && Array.isArray(state.instances) && state.instances.length > 0 && state.instances.length < expected.length) {
+    const ids = new Set(state.instances.map(i => i?.id));
+    if (ids.size === state.instances.length && state.instances.every(i => expected.some(e => e.id === i?.id))) {
+      return { ...state, instances: [...state.instances, ...expected.filter(e => !ids.has(e.id))] };
+    }
+  }
+  return state;
+}
 class StateStore {
   constructor(file) { this.file = file; }
   load() {
     try {
-      return validateState(readJSON(this.file));
+      return validateState(migrateState(readJSON(this.file)));
     } catch (error) {
       if (error.code === 'ENOENT') { this.needsInitialSave = true; return initialState(); }
       throw new Error('state_recovery_required', { cause: error });
@@ -52,4 +62,4 @@ class StateStore {
     writeJSON(this.file, state);
   }
 }
-module.exports = { StateStore, validateState, initialState };
+module.exports = { StateStore, validateState, migrateState, initialState };

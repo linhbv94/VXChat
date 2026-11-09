@@ -146,6 +146,12 @@ test('confirmed Messenger scope blocks feed direct/redirect/API loads before set
   await owner.navigateTo('https://www.facebook.com/profile.php?id=456');
   assert.equal(wc.url, 'https://www.facebook.com/messages/t/123'); assert.equal(opened.length, 3);
   assert.equal(wc.open({ url: 'https://www.facebook.com/feed/' }).action, 'deny');
+  await tick();
+  assert.equal(opened.length, 4);
+  assert.equal(wc.open({ url: 'https://www.facebook.com/messenger_media/?attachment_id=99&thread_id=123' }).action, 'deny');
+  await tick();
+  assert.equal(wc.url, 'https://www.facebook.com/messenger_media/?attachment_id=99&thread_id=123');
+  assert.equal(opened.length, 4);
   assert.equal(wc.open({ url: 'https://www.messenger.com/groupcall/123' }).action, 'allow');
   const options = wc.open({ url: 'https://www.messenger.com/groupcall/123' }).overrideBrowserWindowOptions;
   assert.equal(options.parent, undefined); assert.equal(options.modal, false); assert.equal(options.alwaysOnTop, false);

@@ -47,15 +47,21 @@ ready.then(async () => {
   assert.equal(result.ok, true); assert.deepEqual(result.state.tabs, []);
   assert.equal(await shell.executeJavaScript('document.querySelectorAll("#theme-btn,#lang-btn").length'),0,'Theme and language belong in Settings only');
   phase='persistent_service_launcher';
-  assert.deepEqual(await shell.executeJavaScript('[...document.querySelectorAll(".service-group")].map(e=>e.dataset.serviceId)'),['messenger','zalo','slack','chatgpt']);
+  assert.deepEqual(await shell.executeJavaScript('[...document.querySelectorAll(".service-group")].map(e=>e.dataset.serviceId)'),['messenger','zalo','slack','chatgpt','gmail','gemini','meet']);
   assert.equal(await shell.executeJavaScript('document.querySelector("[data-add-service=messenger]").getAttribute("aria-disabled")'),'true');
+  assert.equal(await shell.executeJavaScript('document.querySelector("[data-add-service=gmail]").getAttribute("aria-disabled")'),'true');
+  assert.equal(await shell.executeJavaScript('document.querySelector("[data-add-service=gemini]").getAttribute("aria-disabled")'),'true');
+  assert.equal(await shell.executeJavaScript('document.querySelector("[data-add-service=meet]").getAttribute("aria-disabled")'),'true');
   const launcherTest=await shell.executeJavaScript(`(() => {
     const state=current;render({...state,tabs:[{id:'synthetic',service_id:'chatgpt',label:'ChatGPT',status:'ready'}],active_tab_id:'synthetic'});
     const services=[...document.querySelectorAll('.service-group')].map(e=>e.dataset.serviceId);
     document.querySelector('[data-add-service=messenger]').click();
+    document.querySelector('[data-add-service=gmail]').click();
+    document.querySelector('[data-add-service=gemini]').click();
+    document.querySelector('[data-add-service=meet]').click();
     render(state);return {services,plusLabel:document.querySelector('[data-add-service=chatgpt]').getAttribute('aria-label')};
   })()`);
-  assert.equal(launcherTest.services.length,4);assert.ok(/ChatGPT/.test(launcherTest.plusLabel));
+  assert.equal(launcherTest.services.length,7);assert.ok(/ChatGPT/.test(launcherTest.plusLabel));
   assert.equal((await shell.executeJavaScript('window.vxchat.command({action:"state"})')).state.tabs.length,0);
   await shell.executeJavaScript('document.getElementById("manage-services").click();document.querySelector("[data-visibility-id=slack]").click()');
   for(let n=0;n<30;n++){if(await shell.executeJavaScript('!document.querySelector(".service-group[data-service-id=slack]")'))break;await new Promise(r=>setTimeout(r,20));}
@@ -69,13 +75,13 @@ ready.then(async () => {
   for(let n=0;n<30;n++){if(await shell.executeJavaScript('document.querySelector(".service-group").dataset.serviceId === "chatgpt"'))break;await new Promise(r=>setTimeout(r,20));}
   assert.equal(await shell.executeJavaScript('document.querySelector(".service-group").dataset.serviceId'),'chatgpt');
   assert.equal(webContents.getAllWebContents().length,1,'Hiding and reordering shortcuts must not allocate service views');
-  await shell.executeJavaScript('window.vxchat.command({action:"preferences_update",patch:{service_order:["messenger","zalo","slack","chatgpt"],hidden_services:[]}})');
+  await shell.executeJavaScript('window.vxchat.command({action:"preferences_update",patch:{service_order:["messenger","zalo","slack","chatgpt","gmail","gemini","meet"],hidden_services:[]}})');
   await shell.executeJavaScript('document.getElementById("manage-services").click()');
   phase = 'invalid_ipc';
   const rejected = await shell.executeJavaScript('window.vxchat.command({ action: "add", service_id: "slack", partition: "persist:injected" })');
   assert.equal(rejected.ok, false);
   phase = 'disabled_provider';
-  const disabled = await shell.executeJavaScript('window.vxchat.command({ action: "add", service_id: "gemini" })');
+  const disabled = await shell.executeJavaScript('window.vxchat.command({ action: "add", service_id: "discord" })');
   assert.equal(disabled.ok, false);
   assert.ok(Menu.getApplicationMenu());
   assert.equal(webContents.getAllWebContents().length, 1); // No provider or real account opened.
@@ -135,34 +141,56 @@ ready.then(async () => {
   assert.equal(await shell.executeJavaScript('document.querySelector("[data-launch-service=chatgpt]").classList.contains("is-unopened")'),false);
   assert.equal(await shell.executeJavaScript('document.getElementById("page-location").nextElementSibling.id'),'manage-services');
   await captureLauncher('launcher_two_chatgpt_vi.png');
-  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),4);
+  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),7);
   for(const tab of aiState.tabs)await shell.executeJavaScript(`window.vxchat.command({action:'close',tab_id:${JSON.stringify(tab.id)}})`);
-  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),4,'Closing the last tab retains all service shortcuts');
+  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),7,'Closing the last tab retains all service shortcuts');
   aiSession.protocol.unhandle('https');
+  phase='google_shared_session_and_meet';
+  const googleSession=session.fromPartition('persist:service-google');
+  await googleSession.protocol.handle('https',()=>new Response('<!doctype html><title>Synthetic Google</title><p>Google Workspace</p>',{headers:{'content-type':'text/html'}}));
+  const gmailReady=nextPage();await shell.executeJavaScript('document.querySelector("[data-launch-service=gmail]").click()');const gmailWC=await gmailReady;
+  const geminiReady=nextPage();await shell.executeJavaScript('document.querySelector("[data-launch-service=gemini]").click()');const geminiWC=await geminiReady;
+  assert.equal(gmailWC.session,geminiWC.session,'Gmail and Gemini must share persist:service-google');
+  const meetReady=nextPage();await gmailWC.executeJavaScript('window.open("https://meet.google.com/abc-defg-hij","vxchat_meet_fixture"); undefined');const meetWC=await meetReady;
+  const meetWindow=electron.BrowserWindow.fromWebContents(meetWC);
+  assert.equal(meetWC.session,gmailWC.session,'Meet window must share the Google profile session');
+  assert.equal(meetWindow.getParentWindow(),null);assert.equal(meetWindow.isAlwaysOnTop(),false);assert.equal(meetWindow.isModal(),false);
+  meetWindow.close();
+  const googleState=(await shell.executeJavaScript('window.vxchat.command({action:"state"})')).state;
+  for(const tab of googleState.tabs)await shell.executeJavaScript(`window.vxchat.command({action:'close',tab_id:${JSON.stringify(tab.id)}})`);
+  googleSession.protocol.unhandle('https');
   phase = 'download_cue_feedback';
   const cueTest = await shell.executeJavaScript(`(() => {
     const btn = document.getElementById('downloads-btn');
     const icon = document.getElementById('downloads-icon');
     const live = document.getElementById('downloads-live');
     const initHasClass = btn.classList.contains('has-completed');
+    const initIconKind = icon?.dataset.icon;
+    const hasSetupSvg = !!document.querySelector('#setup-btn svg');
     if (typeof downloadTracker !== 'undefined' && downloadTracker) {
       downloadTracker.update([{ id: 'test_dl_1', status: 'downloading', name: 'demo.png' }]);
       downloadTracker.update([{ id: 'test_dl_1', status: 'completed', name: 'demo.png' }]);
     }
     const afterCueHasClass = btn.classList.contains('has-completed');
-    const iconText = icon?.textContent;
+    const iconKind = icon?.dataset.icon;
+    const hasCueSvg = !!icon?.querySelector('svg');
     const liveText = live?.textContent;
     btn.click();
     const afterClickHasClass = btn.classList.contains('has-completed');
-    const iconAfter = icon?.textContent;
-    return { initHasClass, afterCueHasClass, iconText, liveText, afterClickHasClass, iconAfter };
+    const iconAfter = icon?.dataset.icon;
+    const hasDownloadSvg = !!icon?.querySelector('svg');
+    return { initHasClass, initIconKind, hasSetupSvg, afterCueHasClass, iconKind, hasCueSvg, liveText, afterClickHasClass, iconAfter, hasDownloadSvg };
   })()`);
   assert.equal(cueTest.initHasClass, false);
+  assert.equal(cueTest.initIconKind, 'download');
+  assert.equal(cueTest.hasSetupSvg, true);
   assert.equal(cueTest.afterCueHasClass, true);
-  assert.equal(cueTest.iconText, '✓');
+  assert.equal(cueTest.iconKind, 'check');
+  assert.equal(cueTest.hasCueSvg, true);
   assert.ok(cueTest.liveText.length > 0);
   assert.equal(cueTest.afterClickHasClass, false);
-  assert.equal(cueTest.iconAfter, '↓');
+  assert.equal(cueTest.iconAfter, 'download');
+  assert.equal(cueTest.hasDownloadSvg, true);
   phase='download_panel_manual';
   let panel;
   for(let n=0;n<60;n++){panel=webContents.getAllWebContents().find(w=>w.getURL().endsWith('/downloads_panel.html'));if(panel&&!panel.isLoadingMainFrame())break;await new Promise(r=>setTimeout(r,20));}
@@ -225,8 +253,17 @@ ready.then(async () => {
     await panel.executeJavaScript('window.vxchat.command({action:"window_close"})');
     assert.equal(primaryWindow.contentView.children.some(v=>v.webContents===panel),false);
     await shell.executeJavaScript('window.vxchat.command({action:"download_panel"})');
+    const cardMetrics=await panel.executeJavaScript(`(() => {
+      const card=document.querySelector('.downloads-card'),list=document.getElementById('list'),cs=getComputedStyle(card),ls=getComputedStyle(list);
+      return {hasCard:!!card,borderRadius:cs.borderRadius,cardOverflow:cs.overflow,listOverflowY:ls.overflowY};
+    })()`);
+    assert.equal(cardMetrics.hasCard,true);assert.equal(cardMetrics.borderRadius,'12px');assert.equal(cardMetrics.cardOverflow,'hidden');assert.equal(cardMetrics.listOverflowY,'auto');
     let escapePrevented=false;remote.emit('before-input-event',{preventDefault(){escapePrevented=true;}},{type:'keyDown',key:'Escape'});
     assert.equal(escapePrevented,true);assert.equal(primaryWindow.contentView.children.some(v=>v.webContents===panel),false);
+    await shell.executeJavaScript('window.vxchat.command({action:"download_panel"})');
+    assert.equal(primaryWindow.contentView.children.some(v=>v.webContents===panel),true);
+    remote.emit('input-event',{},{type:'mouseDown'});
+    assert.equal(primaryWindow.contentView.children.some(v=>v.webContents===panel),false,'Clicking inside provider content must dismiss the download panel');
     const fullDownloadsReady=nextPage();await panel.executeJavaScript('window.vxchat.command({action:"downloads"})');const fullDownloads=await fullDownloadsReady;
     for(let n=0;n<30;n++){if(await fullDownloads.executeJavaScript('!!document.querySelector("[data-action=open]")'))break;await new Promise(r=>setTimeout(r,20));}
     assert.equal(await fullDownloads.executeJavaScript('!!document.querySelector("[data-action=reveal]")'),true);
@@ -254,6 +291,9 @@ ready.then(async () => {
     assert.equal(actual.scroll,240); assert.equal(actual.outerOverflow,'hidden');
     assert.equal(actual.hit,true); assert.equal(actual.fixedMarkers,0);
   }
+  await new Promise(resolve => setTimeout(resolve,180));
+  const persistedBounds = JSON.parse(fs.readFileSync(path.join(temporary,'window_state_v1.json'),'utf8'));
+  assert.equal(persistedBounds.width,1200); assert.equal(persistedBounds.height,820);
   phase = 'image_viewer';
   let imageMenu; const originalMenu = Menu.buildFromTemplate;
   Menu.buildFromTemplate = template => { imageMenu = template; return { popup() {} }; };
@@ -309,6 +349,28 @@ ready.then(async () => {
       assert.equal(remote.getURL(), 'https://www.facebook.com/messages/t');
       assert.deepEqual(await remote.executeJavaScript('({ draft:document.querySelector("#draft").value, sameDocument:!!window.fixtureDocument })'), { draft: 'synthetic retained draft', sameDocument: true });
     }
+    const beforeMediaCount = opened.length;
+    await remote.executeJavaScript(`history.pushState({}, '', '/messenger_media/?attachment_id=123&message_id=456&thread_id=789')`);
+    await new Promise(resolve => setTimeout(resolve, 60));
+    assert.equal(opened.length, beforeMediaCount, '/messenger_media/ must remain inside Messenger chat and never open external browser');
+    assert.equal(remote.getURL(), 'https://www.facebook.com/messenger_media/?attachment_id=123&message_id=456&thread_id=789');
+    const mediaState = await remote.executeJavaScript(`({
+      clean: document.documentElement.hasAttribute('data-vx-messenger-clean'),
+      media: document.documentElement.hasAttribute('data-vx-messenger-media'),
+      bannerDisplay: getComputedStyle(document.querySelector('#global')).display,
+      headerHeight: getComputedStyle(document.body).getPropertyValue('--header-height').trim()
+    })`);
+    assert.deepEqual(mediaState, { clean: true, media: true, bannerDisplay: 'none', headerHeight: '56px' });
+    await remote.executeJavaScript(`history.pushState({}, '', '/messages/t')`);
+    await new Promise(resolve => setTimeout(resolve, 40));
+    assert.equal(remote.getURL(), 'https://www.facebook.com/messages/t');
+    const chatStateAfterMedia = await remote.executeJavaScript(`({
+      clean: document.documentElement.hasAttribute('data-vx-messenger-clean'),
+      media: document.documentElement.hasAttribute('data-vx-messenger-media'),
+      bannerDisplay: getComputedStyle(document.querySelector('#global')).display,
+      headerHeight: getComputedStyle(document.body).getPropertyValue('--header-height').trim()
+    })`);
+    assert.deepEqual(chatStateAfterMedia, { clean: true, media: false, bannerDisplay: 'none', headerHeight: '0px' });
     opened.length = 0;
     phase = 'scope_document';
     await remote.executeJavaScript('location.href = "https://example.test/article"');

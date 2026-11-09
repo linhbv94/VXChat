@@ -9,9 +9,14 @@ button:focus-visible {outline:2px solid var(--accent);}
 .download button {margin-right:8px;}
 progress {width:100%;accent-color:var(--accent);}
 #error {color:var(--danger);min-height:18px;}
-.downloads-panel {padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:10px;min-height:100vh;}
+html:has(> body.downloads-panel), body.downloads-panel {height:100%;margin:0;padding:0;overflow:hidden;background:transparent;}
+.downloads-card {height:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
 .downloads-panel h1 {font-size:14px;}
-.downloads-panel .download-header {padding-bottom:8px;gap:6px;}
+.downloads-panel .download-header {position:static;padding-bottom:0;gap:6px;flex-shrink:0;}
+.downloads-panel #clear {align-self:flex-start;flex-shrink:0;}
+.downloads-panel #list {flex:1;min-height:0;overflow-y:auto;}
 .downloads-panel button {font-size:11px;padding:5px 8px;}
 .downloads-panel .download {padding:10px;}
+.downloads-panel .download:last-child {margin-bottom:0;}
+.downloads-panel #error {margin:0;flex-shrink:0;}
 .downloads-panel #error:empty {display:none;}

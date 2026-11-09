@@ -470,6 +470,12 @@ html[data-platform="linux"] #titlebar {padding-left:12px;}
 #service-manager p {margin:0 0 6px;font-size:11px;}
 #service-manager label {display:inline-flex;align-items:center;gap:4px;margin-right:16px;cursor:pointer;}
 
+#downloads-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 #downloads-btn.has-completed {
   color: var(--accent);
 }
@@ -481,7 +487,7 @@ html[data-platform="linux"] #titlebar {padding-left:12px;}
 }
 
 #downloads-btn.has-completed #downloads-icon {
-  display: inline-block;
+  display: inline-flex;
   animation: vx-download-cue 0.35s ease-out 2;
 }
 

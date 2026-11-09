@@ -8,14 +8,29 @@ function safeFilename(value) {
   if (!name || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(name)) name = `download_${name || 'file'}`;
   return name;
 }
+function existingDirectory(value) {
+  try { return typeof value === 'string' && path.isAbsolute(value) && fs.statSync(value).isDirectory() ? value : null; } catch { return null; }
+}
 class DownloadRegistry {
   constructor({ shell, directory, changed = () => {}, getPreferences = () => ({ ask_download_location:true }) }) {
-    Object.assign(this, { shell, directory, changed, getPreferences }); this.records = new Map(); this.disposed = false;
+    Object.assign(this, { shell, directory, changed, getPreferences }); this.records = new Map(); this.disposed = false; this.lastDirectory = null;
+  }
+  resolveDialogDirectory(prefs) {
+    return existingDirectory(this.lastDirectory) || existingDirectory(prefs.download_directory) || existingDirectory(this.directory) || prefs.download_directory || this.directory;
+  }
+  syncSavePath(record, item, prefs, remember) {
+    const savePath = item.getSavePath?.();
+    if (!savePath) return;
+    record.name = safeFilename(savePath);
+    if (remember && prefs.ask_download_location !== false) {
+      const dir = existingDirectory(path.dirname(savePath));
+      if (dir) this.lastDirectory = dir;
+    }
   }
   track(owner, item) {
     const record = { id: randomUUID(), owner_id: owner.tab.id, service_id: owner.instance.service_id, name: safeFilename(item.getFilename()), status: 'downloading', received: 0, total: 0, file: null, item };
     const prefs = this.getPreferences(); const directory = prefs.download_directory || this.directory;
-    if (prefs.ask_download_location !== false) item.setSaveDialogOptions({ defaultPath: path.join(directory, record.name) });
+    if (prefs.ask_download_location !== false) item.setSaveDialogOptions({ defaultPath: path.join(this.resolveDialogDirectory(prefs), record.name) });
     else {
       // Reserve a unique destination; never overwrite an existing user file.
       if (!fs.statSync(directory).isDirectory()) throw new Error('download_missing');
@@ -31,15 +46,18 @@ class DownloadRegistry {
       try { item.setSavePath(destination); } catch (error) { this.releaseReservation(record); throw error; }
     }
     this.records.set(record.id, record); owner.downloads.add(item);
-    const update = () => {
+    const update = (fromEvent = true) => {
       if (this.disposed) return;
+      if (fromEvent) this.syncSavePath(record, item, prefs, true);
       record.received = Math.max(0, Number(item.getReceivedBytes()) || 0); record.total = Math.max(0, Number(item.getTotalBytes()) || 0);
       this.changed();
     };
-    item.on('updated', update);
+    const onUpdated = () => update(true);
+    item.on('updated', onUpdated);
     item.once('done', (_event, state) => {
-      owner.downloads.delete(item); item.removeListener('updated', update);
+      owner.downloads.delete(item); item.removeListener('updated', onUpdated);
       if (this.disposed) { if (state !== 'completed') this.releaseReservation(record); return; }
+      if (state !== 'cancelled') this.syncSavePath(record, item, prefs, true);
       record.received = Math.max(0, Number(item.getReceivedBytes()) || 0); record.total = Math.max(0, Number(item.getTotalBytes()) || 0);
       record.status = state === 'completed' ? 'completed' : state === 'cancelled' ? 'cancelled' : 'failed';
       record.file = state === 'completed' ? item.getSavePath() : null; record.item = null;
@@ -47,7 +65,7 @@ class DownloadRegistry {
       if (record.status === 'completed' && !record.file) record.status = 'failed';
       this.trim(); this.changed();
     });
-    update(); return record.id;
+    update(false); return record.id;
   }
   trim() {
     const completed = [...this.records.values()].filter(r => r.status !== 'downloading');

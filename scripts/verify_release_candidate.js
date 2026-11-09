@@ -14,6 +14,7 @@ const dist = path.join(root, 'dist');
 const hash = (file, algorithm) => createHash(algorithm).update(fs.readFileSync(file)).digest(algorithm === 'sha512' ? 'base64' : 'hex');
 function walk(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
+    if (entry.name === '.DS_Store') return [];
     const name = path.join(directory, entry.name);
     assert(!entry.isSymbolicLink(), `Unexpected source symlink: ${name}`);
     return entry.isDirectory() ? walk(name) : [path.relative(root, name)];

@@ -8,6 +8,8 @@ class DownloadPanel {
     if(this.window.isDestroyed())return;
     if(!this.view){
       this.view=this.createView(this.file);
+      this.view.setBackgroundColor?.('#00000000');
+      this.view.webContents.on('blur',()=>this.hide());
       this.unregister=this.ipc.register(this.view.webContents,'downloads',pathToFileURL(this.file).href,()=>this.hide());
       void this.view.webContents.loadFile(this.file).catch(()=>this.hide());
     }

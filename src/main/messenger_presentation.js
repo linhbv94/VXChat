@@ -6,13 +6,16 @@ const { installMessengerLayout } = require('../adapters/messenger_layout');
 const CSS = fs.readFileSync(path.join(__dirname, '../adapters/messenger_nav.css'), 'utf8');
 function compactAllowed(url, confirmed) {
   const u = httpsURL(url);
-  return !!confirmed && !!u && !u.port && ['www.facebook.com', 'facebook.com', 'www.messenger.com', 'messenger.com'].includes(u.hostname) && /^\/messages(?:\/|$)/.test(u.pathname);
+  return !!confirmed && !!u && !u.port && ['www.facebook.com', 'facebook.com', 'www.messenger.com', 'messenger.com'].includes(u.hostname) && /^\/(?:messages|messenger_media)(?:\/|$)/.test(u.pathname);
 }
 class MessengerPresentation {
   constructor(contents, live) { this.contents = contents; this.live = live; this.key = null; this.enabled = false; this.revision = 0; this.pending = null; }
   async sync(enabled) {
     if (!this.live() || this.contents.isDestroyed()) return;
-    if (this.enabled === enabled && (this.key || !enabled)) return;
+    if (this.enabled === enabled && (this.key || !enabled)) {
+      if (enabled && this.contents.executeJavaScriptInIsolatedWorld) await this.contents.executeJavaScriptInIsolatedWorld(1024, [{ code: `(${installMessengerLayout.toString()})(true)` }]).catch(() => {});
+      return;
+    }
     const revision = ++this.revision; this.enabled = enabled;
     const old = this.key; this.key = null;
     if (old) { try { await this.contents.removeInsertedCSS(old); } catch {} }

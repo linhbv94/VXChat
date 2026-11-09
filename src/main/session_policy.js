@@ -14,13 +14,14 @@ class SessionPolicy {
     this.configured = new Map(); this.pending = new Map();
   }
   t(key) { return text(this.getLanguage(), key); }
-  context(instance, wc, value, isMainFrame = true) {
+  context(partition, wc, value, isMainFrame = true) {
     try {
       const owner = this.resolveOwner(wc); const url = httpsURL(value);
       if (owner?.permissionDeniedContents?.has(wc)) return null;
+      const instance = owner?.instance;
       const top = wc && !wc.isDestroyed?.() && httpsURL(wc.getURL());
-      if (!owner || !owner.isLive(owner) || owner.instance.id !== instance.id || !isMainFrame || !url || !top || url.origin !== top.origin || !service(instance.service_id).hosts.some(h => hostMatches(url.hostname, h))) return null;
-      return { owner, origin: url.origin };
+      if (!owner || !owner.isLive(owner) || (instance?.partition || instance?.id) !== partition || !isMainFrame || !url || !top || url.origin !== top.origin || !service(instance.service_id).hosts.some(h => hostMatches(url.hostname, h))) return null;
+      return { owner, instance, origin: url.origin };
     } catch { return null; }
   }
   async ensureOSMedia(keys) {
@@ -35,15 +36,16 @@ class SessionPolicy {
     return true;
   }
   get(instance) {
-    if (this.configured.has(instance.id)) return this.configured.get(instance.id);
+    const partition = instance.partition || instance.id;
+    if (this.configured.has(partition)) return this.configured.get(partition);
     const ses = this.session.fromPartition(instance.partition); ses.setUserAgent(browserUserAgent(ses.getUserAgent()));
-    const context = (wc, value, main) => this.context(instance, wc, value, main);
+    const context = (wc, value, main) => this.context(partition, wc, value, main);
     ses.setPermissionCheckHandler((wc, permission, origin, details = {}) => {
       const ctx = context(wc, origin, details.isMainFrame !== false);
       if (!ctx) return false;
       if (permission === 'display-capture') return true; // Eligibility only; source choice is still required.
       const keys = permissionKeys(permission, details, true);
-      return !!keys.length && keys.every(key => this.permissionStore.decision(instance.id, ctx.origin, key) === 'allow');
+      return !!keys.length && keys.every(key => this.permissionStore.decision(ctx.instance.id, ctx.origin, key) === 'allow');
     });
     ses.setPermissionRequestHandler(async (wc, permission, callback, details = {}) => {
       let replied = false;
@@ -53,10 +55,10 @@ class SessionPolicy {
         if (!ctx) { reply(false); return; }
         if (permission === 'display-capture') { reply(true); return; }
         const keys = permissionKeys(permission, details);
-        if (!keys.length || keys.some(key => this.permissionStore.decision(instance.id, ctx.origin, key) === 'deny')) { reply(false); return; }
-        let allowed = keys.every(key => this.permissionStore.decision(instance.id, ctx.origin, key) === 'allow');
+        if (!keys.length || keys.some(key => this.permissionStore.decision(ctx.instance.id, ctx.origin, key) === 'deny')) { reply(false); return; }
+        let allowed = keys.every(key => this.permissionStore.decision(ctx.instance.id, ctx.origin, key) === 'allow');
         if (!allowed) {
-          const promptKey = `${instance.id}|${ctx.origin}|${keys.slice().sort().join()}`;
+          const promptKey = `${ctx.instance.id}|${ctx.origin}|${keys.slice().sort().join()}`;
           if (!this.pending.has(promptKey)) {
             const names = keys.map(key => this.t(key === 'media:audio' ? 'microphone' : key === 'media:video' ? 'camera' : key.startsWith('clipboard') ? 'clipboard' : key === 'speaker-selection' ? 'speaker' : key));
             const prompt = this.dialog.showMessageBox(this.window, { type: 'question', title: 'VXChat', message: `${ctx.origin}\n${names.join(', ')}`, detail: this.t('permission'), buttons: [this.t('deny'), this.t('allow')], defaultId: 0, cancelId: 0 });
@@ -66,7 +68,7 @@ class SessionPolicy {
           const current = context(wc, ctx.origin, details.isMainFrame !== false);
           if (!current || current.owner !== ctx.owner) { reply(false); return; }
           allowed = result.response === 1;
-          this.permissionStore.set(instance.id, ctx.origin, keys, allowed ? 'allow' : 'deny');
+          this.permissionStore.set(ctx.instance.id, ctx.origin, keys, allowed ? 'allow' : 'deny');
         }
         if (allowed && permission === 'media') allowed = await this.ensureOSMedia(keys);
         const current = context(wc, ctx.origin, details.isMainFrame !== false);
@@ -94,7 +96,7 @@ class SessionPolicy {
       if (!owner || !owner.isLive(owner) || !this.downloads) { event.preventDefault(); return; }
       try { this.downloads.track(owner, item); } catch { event.preventDefault(); }
     });
-    this.configured.set(instance.id, ses); return ses;
+    this.configured.set(partition, ses); return ses;
   }
 }
 module.exports = { SessionPolicy, permissionKeys };
