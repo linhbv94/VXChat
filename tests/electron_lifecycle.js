@@ -90,7 +90,7 @@ app.whenReady().then(async () => {
     await new Promise(r=>setTimeout(r,350));
     const after=sample('closed',round);
     assert.equal(after.contents,0);assert.equal(after.owners,0);assert.equal(after.registry,0);assert.equal(after.child_views,0);
-    assert.ok(cycleContents.every(wc=>wc.isDestroyed()));assert.equal(policy.configured.size,5,'Persistent service sessions must remain bounded by partitions');
+    assert.ok(cycleContents.every(wc=>wc.isDestroyed()));assert.equal(policy.configured.size,8,'Persistent service sessions must remain bounded by partitions');
   }
   await new Promise(r=>setTimeout(r,1500));const final=sample('settled',12);
   const report={result:'PASS',cycles:12,views_opened_closed:36,allocation_mib_per_view:16,final,closed_samples:samples.filter(s=>s.phase==='closed'),samples,

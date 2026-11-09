@@ -49,6 +49,10 @@ class ContentOwner {
   }
   committed(url, inPage = false) {
     if (!this.live()) return;
+    if (this.instance.service_id === 'discord' && ['https://discord.com/', 'https://discord.com', 'https://www.discord.com/', 'https://www.discord.com'].includes(url)) {
+      void this.navigateTo('https://discord.com/channels/@me');
+      return;
+    }
     if (this.decision(url) !== 'allow') {
       if (this.decision(url) === 'external') void this.openExternal(url);
       // Safety net for an early/uncancellable SPA transition: traverse to the
@@ -130,6 +134,8 @@ class ContentOwner {
       if (!this.live() || wc.isDestroyed()) { event.preventDefault(); return; }
       const converted = this.instance.service_id === 'slack' && slackClientURL(url);
       if (converted) { event.preventDefault(); if (auxiliary) void wc.loadURL(converted).catch(() => { if (this.live()) { record.stage = 'error'; this.issue = 'handoff_failed'; this.changed(); } }); else void this.navigateTo(converted); return; }
+      const isDiscordHome = this.instance.service_id === 'discord' && ['https://discord.com/', 'https://discord.com', 'https://www.discord.com/', 'https://www.discord.com'].includes(url);
+      if (isDiscordHome) { event.preventDefault(); const target = 'https://discord.com/channels/@me'; if (auxiliary) void wc.loadURL(target); else void this.navigateTo(target); return; }
       if (!auxiliary && !redirected) ++this.requestID;
       if (record && record.stage === 'waiting' && !record.authFlow && ['browsing', 'client_ready'].includes(record.openingPhase) && externalWebURL(url) && (navigationKind(this.instance.service_id, url) === 'external' || externalWebURL(url)?.protocol === 'http:') && routeStage(this.instance.service_id, url) !== 'auth') {
         event.preventDefault(); void this.openExternal(url).then(() => { if (this.live() && !record.child.isDestroyed()) record.child.close(); }); return;

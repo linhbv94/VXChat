@@ -34,7 +34,10 @@ function defaultProfiles() {
     { id: 'default_messenger', scope_key: 'messenger', label: 'Cá nhân', color: 'blue', partition: 'persist:service-messenger', is_default: true, created_at: 0 },
     { id: 'default_zalo', scope_key: 'zalo', label: 'Cá nhân', color: 'blue', partition: 'persist:service-zalo', is_default: true, created_at: 0 },
     { id: 'default_slack', scope_key: 'slack', label: 'Cá nhân', color: 'blue', partition: 'persist:service-slack', is_default: true, created_at: 0 },
-    { id: 'default_chatgpt', scope_key: 'chatgpt', label: 'Cá nhân', color: 'blue', partition: 'persist:service-chatgpt', is_default: true, created_at: 0 }
+    { id: 'default_chatgpt', scope_key: 'chatgpt', label: 'Cá nhân', color: 'blue', partition: 'persist:service-chatgpt', is_default: true, created_at: 0 },
+    { id: 'default_telegram', scope_key: 'telegram', label: 'Cá nhân', color: 'blue', partition: 'persist:service-telegram', is_default: true, created_at: 0 },
+    { id: 'default_whatsapp', scope_key: 'whatsapp', label: 'Cá nhân', color: 'blue', partition: 'persist:service-whatsapp', is_default: true, created_at: 0 },
+    { id: 'default_discord', scope_key: 'discord', label: 'Cá nhân', color: 'blue', partition: 'persist:service-discord', is_default: true, created_at: 0 }
   ];
 }
 
@@ -44,6 +47,19 @@ function validLabel(value) {
 
 function validColor(value) {
   return typeof value === 'string' && COLOR_KEYS.includes(value);
+}
+
+function migrateProfiles(data) {
+  if (!data || typeof data !== 'object' || data.schema_version !== 1 || !Array.isArray(data.profiles)) {
+    return data;
+  }
+  const defaults = defaultProfiles();
+  const existingIds = new Set(data.profiles.map(p => p.id));
+  const missing = defaults.filter(d => !existingIds.has(d.id));
+  if (missing.length > 0) {
+    return { ...data, profiles: [...data.profiles, ...missing] };
+  }
+  return data;
 }
 
 function validateProfiles(data) {
@@ -82,7 +98,10 @@ class ProfileStore {
   load() {
     try {
       const parsed = readJSON(this.filePath);
-      return validateProfiles(parsed);
+      const migrated = migrateProfiles(parsed);
+      const validated = validateProfiles(migrated);
+      if (migrated !== parsed) this.saveData(validated);
+      return validated;
     } catch (err) {
       if (err.code === 'ENOENT') {
         const initial = { schema_version: 1, profiles: defaultProfiles() };
@@ -112,7 +131,7 @@ class ProfileStore {
   }
 
   create({ scope_key, label, color = 'blue' }) {
-    if (!['google', 'messenger', 'zalo', 'slack', 'chatgpt'].includes(scope_key)) {
+    if (!['google', 'messenger', 'zalo', 'slack', 'chatgpt', 'telegram', 'whatsapp', 'discord'].includes(scope_key)) {
       throw new Error('invalid_scope_key');
     }
     const cleanLabel = (label || '').trim();

@@ -6,13 +6,13 @@ test('launcher preferences migrate schema2, validate fixed order and persist hid
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'vxchat_launcher_'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const file=path.join(dir,'prefs.json');
   const {service_order,hidden_services,...old}=DEFAULTS;old.schema_version=2;old.language='en';old.zoom_levels={default_chatgpt:1.25};
   fs.writeFileSync(file,JSON.stringify(old));const store=new PreferencesStore(file);
-  assert.deepEqual(store.snapshot().service_order,['messenger','zalo','slack','chatgpt','gmail','gemini','meet']);assert.equal(store.snapshot().zoom_levels.default_chatgpt,1.25);
-  const order=['chatgpt','slack','messenger','zalo','gemini','gmail','meet'];store.update({service_order:order,hidden_services:['slack']});order[0]='invalid';
-  const loaded=new PreferencesStore(file);assert.deepEqual(loaded.snapshot().service_order,['chatgpt','slack','messenger','zalo','gemini','gmail','meet']);assert.deepEqual(loaded.snapshot().hidden_services,['slack']);
+  assert.deepEqual(store.snapshot().service_order,['messenger','zalo','slack','chatgpt','gmail','gemini','meet','telegram','whatsapp','discord']);assert.equal(store.snapshot().zoom_levels.default_chatgpt,1.25);
+  const order=['chatgpt','slack','messenger','zalo','gemini','gmail','meet','telegram','whatsapp','discord'];store.update({service_order:order,hidden_services:['slack']});order[0]='invalid';
+  const loaded=new PreferencesStore(file);assert.deepEqual(loaded.snapshot().service_order,['chatgpt','slack','messenger','zalo','gemini','gmail','meet','telegram','whatsapp','discord']);assert.deepEqual(loaded.snapshot().hidden_services,['slack']);
   const snapshot=loaded.snapshot();snapshot.service_order.reverse();snapshot.hidden_services.push('zalo');assert.deepEqual(loaded.snapshot().hidden_services,['slack']);
   const before=fs.readFileSync(file,'utf8');
-  for(const patch of [{service_order:['chatgpt']},{service_order:['chatgpt','zalo','slack','slack','gmail','gemini','meet']},{hidden_services:['unknown']},{hidden_services:['slack','slack']}]){assert.throws(()=>loaded.update(patch));assert.equal(fs.readFileSync(file,'utf8'),before);assert.equal(validCommand({action:'preferences_update',patch}),false);}
-  assert.equal(validCommand({action:'preferences_update',patch:{service_order:['chatgpt','slack','messenger','zalo','gemini','gmail','meet'],hidden_services:[]}}),true);
+  for(const patch of [{service_order:['chatgpt']},{service_order:['chatgpt','zalo','slack','slack','gmail','gemini','meet','telegram','whatsapp','discord']},{hidden_services:['unknown']},{hidden_services:['slack','slack']}]){assert.throws(()=>loaded.update(patch));assert.equal(fs.readFileSync(file,'utf8'),before);assert.equal(validCommand({action:'preferences_update',patch}),false);}
+  assert.equal(validCommand({action:'preferences_update',patch:{service_order:['chatgpt','slack','messenger','zalo','gemini','gmail','meet','telegram','whatsapp','discord'],hidden_services:[]}}),true);
   loaded.update({hidden_services:[...DEFAULTS.service_order]});assert.equal(loaded.snapshot().hidden_services.length,DEFAULTS.service_order.length);
   assert.deepEqual(loaded.reset().service_order,DEFAULTS.service_order);assert.deepEqual(loaded.snapshot().hidden_services,[]);assert.equal(loaded.snapshot().language,'en');
 });
@@ -23,14 +23,14 @@ test('v1.0.1 4-service state and preferences migrate additively to include Googl
   const { windowPurpose, serviceScopeDecision } = require('../src/core/service_scope');
   const prefFile = path.join(dir,'prefs.json');
   fs.writeFileSync(prefFile, JSON.stringify({ ...DEFAULTS, service_order: ['messenger','zalo','slack','chatgpt'] }));
-  assert.deepEqual(new PreferencesStore(prefFile).snapshot().service_order, ['messenger','zalo','slack','chatgpt','gmail','gemini','meet']);
+  assert.deepEqual(new PreferencesStore(prefFile).snapshot().service_order, ['messenger','zalo','slack','chatgpt','gmail','gemini','meet','telegram','whatsapp','discord']);
   const stateFile = path.join(dir,'state.json');
   const legacyState = initialState();
   legacyState.instances = legacyState.instances.slice(0, 4);
   legacyState.tabs = legacyState.tabs.slice(0, 4);
   fs.writeFileSync(stateFile, JSON.stringify(legacyState));
   const loadedState = new StateStore(stateFile).load();
-  assert.equal(loadedState.instances.length, 7);
+  assert.equal(loadedState.instances.length, 10);
   assert.equal(loadedState.instances.find(i => i.id === 'default_gmail').partition, 'persist:service-google');
   assert.equal(loadedState.instances.find(i => i.id === 'default_gemini').partition, 'persist:service-google');
   assert.equal(loadedState.instances.find(i => i.id === 'default_meet').partition, 'persist:service-google');
@@ -140,4 +140,32 @@ test('Tab overflow calculation handles capacity, edge budgets and preserves acti
   assert.equal(standard7.overflow, true);
   assert.ok(standard7.overflowCount >= 2);
   assert.ok(standard7.visibleIndices.includes(5), 'Active tab must be visible');
+});
+
+test('Telegram, WhatsApp, and Discord services: configuration, routing, and Discord homepage protection', () => {
+  const { SERVICES, service, navigationKind } = require('../src/core/services');
+  const { routeStage, navigationDecision } = require('../src/core/workflow');
+
+  assert.equal(service('telegram').url, 'https://web.telegram.org/');
+  assert.equal(service('telegram').multiTab, false);
+  assert.equal(service('whatsapp').url, 'https://web.whatsapp.com/');
+  assert.equal(service('whatsapp').multiTab, false);
+  assert.equal(service('discord').url, 'https://discord.com/channels/@me');
+  assert.equal(service('discord').multiTab, false);
+
+  assert.equal(navigationKind('telegram', 'https://web.telegram.org/a/'), 'service');
+  assert.equal(navigationKind('telegram', 'https://web.telegram.org/k/'), 'service');
+  assert.equal(navigationKind('whatsapp', 'https://web.whatsapp.com/'), 'service');
+  assert.equal(navigationKind('discord', 'https://discord.com/channels/@me'), 'service');
+  assert.equal(navigationKind('discord', 'https://discord.com/login'), 'service');
+
+  assert.equal(routeStage('discord', 'https://discord.com/login'), 'auth');
+  assert.equal(routeStage('discord', 'https://discord.com/channels/@me'), 'client');
+  assert.equal(routeStage('telegram', 'https://web.telegram.org/k/'), 'client');
+  assert.equal(routeStage('whatsapp', 'https://web.whatsapp.com/'), 'client');
+
+  assert.equal(navigationDecision('discord', 'https://discord.com/channels/@me'), 'allow');
+  assert.equal(navigationDecision('discord', 'https://discord.com/login'), 'allow');
+  assert.equal(navigationDecision('telegram', 'https://web.telegram.org/k/'), 'allow');
+  assert.equal(navigationDecision('whatsapp', 'https://web.whatsapp.com/'), 'allow');
 });

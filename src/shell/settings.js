@@ -110,7 +110,7 @@ function renderBrowserPreferences() {
   const root = document.getElementById('browser-controls'); if (!root) return;
   const en = currentLang === 'en'; root.replaceChildren();
   const heading = document.createElement('h3'); heading.className = 'vx_settings_heading'; heading.textContent = en ? 'Web content & downloads' : 'Nội dung web & tải xuống'; root.append(heading);
-  for (const [service,label] of [['messenger','Messenger'],['zalo','Zalo'],['slack','Slack'],['chatgpt','ChatGPT'],['gmail','Gmail'],['gemini','Gemini'],['meet','Google Meet']]) {
+  for (const [service,label] of [['messenger','Messenger'],['zalo','Zalo'],['slack','Slack'],['chatgpt','ChatGPT'],['gmail','Gmail'],['gemini','Gemini'],['meet','Google Meet'],['telegram','Telegram'],['whatsapp','WhatsApp'],['discord','Discord']]) {
     const row = document.createElement('label'); row.className = 'browser-preference-row'; row.textContent = `${label} — Zoom`;
     const select = document.createElement('select'); select.id = `zoom-${service}`;
     for (const value of [0.5,0.67,0.8,0.9,1,1.1,1.25,1.5,1.75,2]) { const option = document.createElement('option'); option.value = value; option.textContent = `${Math.round(value * 100)}%`; select.append(option); }

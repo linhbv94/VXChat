@@ -47,8 +47,11 @@ ready.then(async () => {
   assert.equal(result.ok, true); assert.deepEqual(result.state.tabs, []);
   assert.equal(await shell.executeJavaScript('document.querySelectorAll("#theme-btn,#lang-btn").length'),0,'Theme and language belong in Settings only');
   phase='persistent_service_launcher';
-  assert.deepEqual(await shell.executeJavaScript('[...document.querySelectorAll(".service-group")].map(e=>e.dataset.serviceId)'),['messenger','zalo','slack','chatgpt','gmail','gemini','meet']);
+  assert.deepEqual(await shell.executeJavaScript('[...document.querySelectorAll(".service-group")].map(e=>e.dataset.serviceId)'),['messenger','zalo','slack','chatgpt','gmail','gemini','meet','telegram','whatsapp','discord']);
   assert.equal(await shell.executeJavaScript('Boolean(document.querySelector("[data-add-service=messenger]"))'), false);
+  assert.equal(await shell.executeJavaScript('Boolean(document.querySelector("[data-add-service=telegram]"))'), false);
+  assert.equal(await shell.executeJavaScript('Boolean(document.querySelector("[data-add-service=whatsapp]"))'), false);
+  assert.equal(await shell.executeJavaScript('Boolean(document.querySelector("[data-add-service=discord]"))'), false);
   assert.equal(await shell.executeJavaScript('Boolean(document.querySelector("[data-add-service=gmail]"))'), false);
   assert.equal(await shell.executeJavaScript('Boolean(document.querySelector("[data-add-service=meet]"))'), false);
   assert.equal(await shell.executeJavaScript('Boolean(document.querySelector("[data-add-service=chatgpt]"))'), true);
@@ -60,7 +63,7 @@ ready.then(async () => {
     render(state);
     return { services, plusLabel: document.querySelector('[data-add-service=chatgpt]').getAttribute('aria-label') };
   })()`);
-  assert.equal(launcherTest.services.length, 7);
+  assert.equal(launcherTest.services.length, 10);
   assert.ok(/ChatGPT/.test(launcherTest.plusLabel));
   assert.equal((await shell.executeJavaScript('window.vxchat.command({action:"state"})')).state.tabs.length,0);
   await shell.executeJavaScript('document.getElementById("manage-services").click();document.querySelector("[data-visibility-id=slack]").click()');
@@ -75,13 +78,13 @@ ready.then(async () => {
   for(let n=0;n<30;n++){if(await shell.executeJavaScript('document.querySelector(".service-group").dataset.serviceId === "chatgpt"'))break;await new Promise(r=>setTimeout(r,20));}
   assert.equal(await shell.executeJavaScript('document.querySelector(".service-group").dataset.serviceId'),'chatgpt');
   assert.equal(webContents.getAllWebContents().length,1,'Hiding and reordering shortcuts must not allocate service views');
-  await shell.executeJavaScript('window.vxchat.command({action:"preferences_update",patch:{service_order:["messenger","zalo","slack","chatgpt","gmail","gemini","meet"],hidden_services:[]}})');
+  await shell.executeJavaScript('window.vxchat.command({action:"preferences_update",patch:{service_order:["messenger","zalo","slack","chatgpt","gmail","gemini","meet","telegram","whatsapp","discord"],hidden_services:[]}})');
   await shell.executeJavaScript('document.getElementById("manage-services").click()');
   phase = 'invalid_ipc';
   const rejected = await shell.executeJavaScript('window.vxchat.command({ action: "add", service_id: "slack", partition: "persist:injected" })');
   assert.equal(rejected.ok, false);
   phase = 'disabled_provider';
-  const disabled = await shell.executeJavaScript('window.vxchat.command({ action: "add", service_id: "discord" })');
+  const disabled = await shell.executeJavaScript('window.vxchat.command({ action: "add", service_id: "wechat" })');
   assert.equal(disabled.ok, false);
   assert.ok(Menu.getApplicationMenu());
   assert.equal(webContents.getAllWebContents().length, 1); // No provider or real account opened.
@@ -247,9 +250,9 @@ ready.then(async () => {
   assert.equal(await shell.executeJavaScript('document.querySelector("[data-launch-service=chatgpt]").classList.contains("is-unopened")'),false);
   assert.equal(await shell.executeJavaScript('document.getElementById("page-location").nextElementSibling.id'),'manage-services');
   await captureLauncher('launcher_two_chatgpt_vi.png');
-  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),7);
+  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),10);
   for(const tab of aiState.tabs)await shell.executeJavaScript(`window.vxchat.command({action:'close',tab_id:${JSON.stringify(tab.id)}})`);
-  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),7,'Closing the last tab retains all service shortcuts');
+  assert.equal(await shell.executeJavaScript('document.querySelectorAll(".service-group").length'),10,'Closing the last tab retains all service shortcuts');
   aiSession.protocol.unhandle('https');
   phase='google_shared_session_and_meet';
   const googleSession=session.fromPartition('persist:service-google');

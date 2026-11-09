@@ -17,7 +17,7 @@ test('ProfileStore initializes with default profiles and derives correct partiti
 
   const store = new ProfileStore(file);
   const profiles = store.snapshot();
-  assert.equal(profiles.length, 5);
+  assert.equal(profiles.length, 8);
 
   const googleProfile = profiles.find(p => p.scope_key === 'google');
   assert.ok(googleProfile);
@@ -36,11 +36,17 @@ test('ProfileStore initializes with default profiles and derives correct partiti
   assert.equal(scopeForService('zalo'), 'zalo');
   assert.equal(scopeForService('slack'), 'slack');
   assert.equal(scopeForService('chatgpt'), 'chatgpt');
+  assert.equal(scopeForService('telegram'), 'telegram');
+  assert.equal(scopeForService('whatsapp'), 'whatsapp');
+  assert.equal(scopeForService('discord'), 'discord');
 
   // Verify partition derivation
   assert.equal(partitionForProfile('google', 'default_google'), 'persist:service-google');
   assert.equal(partitionForProfile('google', 'profile_xyz'), 'persist:service-google-profile_xyz');
   assert.equal(partitionForProfile('messenger', 'profile_xyz'), 'persist:service-messenger-profile_xyz');
+  assert.equal(partitionForProfile('telegram', 'default_telegram'), 'persist:service-telegram');
+  assert.equal(partitionForProfile('whatsapp', 'default_whatsapp'), 'persist:service-whatsapp');
+  assert.equal(partitionForProfile('discord', 'default_discord'), 'persist:service-discord');
 });
 
 test('ProfileStore supports create, update, delete and protects default profiles', t => {
@@ -57,7 +63,7 @@ test('ProfileStore supports create, update, delete and protects default profiles
   assert.equal(created.partition, `persist:service-messenger-${created.id}`);
   assert.equal(created.is_default, false);
 
-  assert.equal(store.snapshot().length, 6);
+  assert.equal(store.snapshot().length, 9);
 
   // Update profile
   const updated = store.update(created.id, { label: 'Work Updated', color: 'rose' });
@@ -70,11 +76,11 @@ test('ProfileStore supports create, update, delete and protects default profiles
   // Delete custom profile
   const deleted = store.delete(created.id);
   assert.equal(deleted.id, created.id);
-  assert.equal(store.snapshot().length, 5);
+  assert.equal(store.snapshot().length, 8);
 
   // Reload from disk to verify persistence
   const reloaded = new ProfileStore(file);
-  assert.equal(reloaded.snapshot().length, 5);
+  assert.equal(reloaded.snapshot().length, 8);
 });
 
 test('TabEngine integrates with ProfileStore for multi-account lifecycle', async t => {
@@ -108,7 +114,7 @@ test('TabEngine integrates with ProfileStore for multi-account lifecycle', async
   });
 
   engine.start();
-  assert.equal(engine.snapshot().instances.length, 7);
+  assert.equal(engine.snapshot().instances.length, 10);
 
   // Create new account for Messenger
   const resMessenger = await engine.createAccount({
@@ -122,7 +128,7 @@ test('TabEngine integrates with ProfileStore for multi-account lifecycle', async
   assert.equal(resMessenger.instance.profile_color, 'amber');
 
   const snapMessenger = engine.snapshot();
-  assert.equal(snapMessenger.instances.length, 8);
+  assert.equal(snapMessenger.instances.length, 11);
   const messengerTabs = snapMessenger.tabs.filter(t => t.service_id === 'messenger');
   assert.equal(messengerTabs.length, 2);
   assert.ok(messengerTabs.some(t => t.instance_id === 'default_messenger'));
@@ -137,8 +143,8 @@ test('TabEngine integrates with ProfileStore for multi-account lifecycle', async
   assert.ok(resGoogle.profile.id);
 
   const snapGoogle = engine.snapshot();
-  // 7 defaults + 1 messenger + 3 google (gmail, gemini, meet) = 11 instances
-  assert.equal(snapGoogle.instances.length, 11);
+  // 10 defaults + 1 messenger + 3 google (gmail, gemini, meet) = 14 instances
+  assert.equal(snapGoogle.instances.length, 14);
 
   const googleWorkInstances = snapGoogle.instances.filter(i => i.profile_id === resGoogle.profile.id);
   assert.equal(googleWorkInstances.length, 3);
@@ -160,7 +166,7 @@ test('TabEngine integrates with ProfileStore for multi-account lifecycle', async
   // Delete Google profile
   await engine.deleteAccount(resGoogle.profile.id);
   const snapDeleted = engine.snapshot();
-  assert.equal(snapDeleted.instances.length, 8); // Back to 7 defaults + 1 messenger
+  assert.equal(snapDeleted.instances.length, 11); // Back to 10 defaults + 1 messenger
   assert.equal(snapDeleted.instances.some(i => i.profile_id === resGoogle.profile.id), false);
 
   engine.dispose();

@@ -1,7 +1,7 @@
 {
   "name": "vxchat",
   "productName": "VXChat",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Messaging services and AI conversations in one desktop app",
   "main": "src/main/app.js",

@@ -7,7 +7,10 @@ const SERVICES = Object.freeze({
   chatgpt: Object.freeze({ label: 'ChatGPT', url: 'https://chatgpt.com/', hosts: ['chatgpt.com'], multiTab: true }),
   gmail: Object.freeze({ label: 'Gmail', url: 'https://mail.google.com/', hosts: ['mail.google.com', 'meet.google.com'], multiTab: false, partition: 'persist:service-google' }),
   gemini: Object.freeze({ label: 'Gemini', url: 'https://gemini.google.com/app', hosts: ['gemini.google.com', 'meet.google.com'], multiTab: true, partition: 'persist:service-google' }),
-  meet: Object.freeze({ label: 'Meet', url: 'https://meet.google.com/', hosts: ['meet.google.com'], multiTab: false, partition: 'persist:service-google' })
+  meet: Object.freeze({ label: 'Meet', url: 'https://meet.google.com/', hosts: ['meet.google.com'], multiTab: false, partition: 'persist:service-google' }),
+  telegram: Object.freeze({ label: 'Telegram', url: 'https://web.telegram.org/', hosts: ['telegram.org', 'web.telegram.org', 't.me'], multiTab: false }),
+  whatsapp: Object.freeze({ label: 'WhatsApp', url: 'https://web.whatsapp.com/', hosts: ['whatsapp.com', 'web.whatsapp.com', 'whatsapp.net'], multiTab: false }),
+  discord: Object.freeze({ label: 'Discord', url: 'https://discord.com/channels/@me', hosts: ['discord.com', 'discordapp.com', 'discordapp.net', 'discord.gg'], multiTab: false })
 });
 const AUTH_HOSTS = Object.freeze(['accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'auth.openai.com', 'auth0.openai.com', 'id.zalo.me']);
 

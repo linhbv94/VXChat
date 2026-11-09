@@ -11,6 +11,19 @@ function routeStage(serviceID, value) {
   if (serviceID === 'slack') return url.hostname === 'app.slack.com' && /^\/client\/[A-Za-z0-9]+(?:\/|$)/.test(url.pathname) ? 'client' : 'auth';
   if (serviceID === 'messenger') return MESSENGER_CHAT_PATH.test(url.pathname) ? 'client' : 'setup';
   if (serviceID === 'chatgpt' && /^\/(?:c|g)\//.test(url.pathname)) return 'client';
+  if (serviceID === 'discord') {
+    if (url.hostname === 'discord.com' && /^\/(?:channels|app)(?:\/|$)/.test(url.pathname)) return 'client';
+    if (url.hostname === 'discord.com' && /^\/login(?:\/|$)/.test(url.pathname)) return 'auth';
+    return 'service';
+  }
+  if (serviceID === 'telegram') {
+    if (url.hostname === 'web.telegram.org' && /^\/(?:k|a)(?:\/|$)/.test(url.pathname)) return 'client';
+    return 'service';
+  }
+  if (serviceID === 'whatsapp') {
+    if (url.hostname === 'web.whatsapp.com') return 'client';
+    return 'service';
+  }
   return 'service';
 }
 function navigationDecision(serviceID, value, { auxiliary = false, currentURL = '', initiator = '', phase = 'starting', redirected = false, setupConfirmed = true, purpose = 'primary', authFlow = false } = {}) {
