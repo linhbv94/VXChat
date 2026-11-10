@@ -46,7 +46,7 @@ class ServiceState {
   entry(id) {
     const value = this.value.entries.find(e => e.instance_id === id);
     if (!value) {
-      if (typeof id === 'string' && id.startsWith('instance_')) {
+      if (typeof id === 'string' && (id.startsWith('instance_') || id.startsWith('default_custom_'))) {
         return { instance_id: id, setup_confirmed: false, workspace_id: null };
       }
       throw new Error('unknown_instance');
@@ -77,7 +77,9 @@ class ServiceState {
     const state = this.entry(instance.id);
     if (instance.service_id === 'messenger' && !state.setup_confirmed) return 'https://www.facebook.com/';
     if (instance.service_id === 'slack') return explicitSlack || (state.workspace_id ? `https://app.slack.com/client/${state.workspace_id}` : 'https://app.slack.com/client');
-    return service(instance.service_id).url;
+    const svc = service(instance.service_id);
+    if (svc.is_custom && svc.login_url) return svc.login_url;
+    return svc.url;
   }
 }
 module.exports = { ServiceState, initialServiceState, validateServiceState, workspaceID };

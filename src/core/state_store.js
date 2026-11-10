@@ -8,7 +8,7 @@ function exactKeys(object, keys) {
   return object && typeof object === 'object' && !Array.isArray(object) && Object.keys(object).sort().join() === keys.slice().sort().join();
 }
 function validID(value) { return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value); }
-function validLabel(value) { return typeof value === 'string' && value.length > 0 && value.length <= 64 && !/[\x00-\x1f\x7f]/.test(value); }
+function validLabel(value) { return typeof value === 'string' && value.length > 0 && value.length <= 128 && !/[\x00-\x1f\x7f]/.test(value); }
 function validateState(state) {
   if (!exactKeys(state, ['schema_version', 'instances', 'tabs', 'active_tab_id']) || state.schema_version !== 2 || !Array.isArray(state.instances) || !Array.isArray(state.tabs)) throw new Error('invalid_state');
   const expected = defaultInstances();
@@ -19,7 +19,9 @@ function validateState(state) {
   }
   for (const instance of state.instances) {
     if (!instance || typeof instance !== 'object' || Array.isArray(instance)) throw new Error('invalid_instance');
-    if (!validID(instance.id) || !validID(instance.service_id) || !SERVICES[instance.service_id] || !validLabel(instance.label)) throw new Error('invalid_instance');
+    let def;
+    try { def = service(instance.service_id); } catch { throw new Error('invalid_instance'); }
+    if (!validID(instance.id) || !validID(instance.service_id) || !def || !validLabel(instance.label)) throw new Error('invalid_instance');
     if (typeof instance.partition !== 'string' || !instance.partition.startsWith('persist:service-')) throw new Error('invalid_instance');
     const isGoogle = ['gmail', 'gemini', 'meet'].includes(instance.service_id);
     if (isGoogle) {
@@ -62,10 +64,27 @@ function initialState() {
 function migrateState(state) {
   const expected = defaultInstances();
   if (state?.schema_version === 2 && Array.isArray(state.instances)) {
-    const ids = new Set(state.instances.map(i => i?.id));
-    if (expected.some(e => !ids.has(e.id))) {
-      return { ...state, instances: [...state.instances, ...expected.filter(e => !ids.has(e.id))] };
+    const validInstances = state.instances.filter(i => {
+      if (!i || typeof i !== 'object') return false;
+      if (typeof i.service_id === 'string' && i.service_id.startsWith('custom_')) {
+        try { return !!service(i.service_id); } catch { return false; }
+      }
+      return true;
+    });
+    const validInstanceIds = new Set(validInstances.map(i => i.id));
+    const validTabs = (Array.isArray(state.tabs) ? state.tabs : []).filter(t => t && validInstanceIds.has(t.instance_id));
+    let activeTabId = state.active_tab_id;
+    if (!validTabs.some(t => t.id === activeTabId)) {
+      activeTabId = validTabs[0]?.id || null;
     }
+    const ids = new Set(validInstances.map(i => i?.id));
+    const missing = expected.filter(e => !ids.has(e.id));
+    return {
+      ...state,
+      instances: [...validInstances, ...missing],
+      tabs: validTabs,
+      active_tab_id: activeTabId
+    };
   }
   return state;
 }
@@ -73,7 +92,11 @@ class StateStore {
   constructor(file) { this.file = file; }
   load() {
     try {
-      return validateState(migrateState(readJSON(this.file)));
+      const raw = readJSON(this.file);
+      const migrated = migrateState(raw);
+      const validated = validateState(migrated);
+      if (JSON.stringify(raw) !== JSON.stringify(validated)) writeJSON(this.file, validated);
+      return validated;
     } catch (error) {
       if (error.code === 'ENOENT') { this.needsInitialSave = true; return initialState(); }
       throw new Error('state_recovery_required', { cause: error });

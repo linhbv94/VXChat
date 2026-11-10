@@ -137,7 +137,11 @@ class ContentOwner {
       const isDiscordHome = this.instance.service_id === 'discord' && ['https://discord.com/', 'https://discord.com', 'https://www.discord.com/', 'https://www.discord.com'].includes(url);
       if (isDiscordHome) { event.preventDefault(); const target = 'https://discord.com/channels/@me'; if (auxiliary) void wc.loadURL(target); else void this.navigateTo(target); return; }
       if (!auxiliary && !redirected) ++this.requestID;
-      if (record && record.stage === 'waiting' && !record.authFlow && ['browsing', 'client_ready'].includes(record.openingPhase) && externalWebURL(url) && (navigationKind(this.instance.service_id, url) === 'external' || externalWebURL(url)?.protocol === 'http:') && routeStage(this.instance.service_id, url) !== 'auth') {
+      const isCustomService = typeof this.instance.service_id === 'string' && this.instance.service_id.startsWith('custom_');
+      const shouldEscape = isCustomService
+        ? navigationKind(this.instance.service_id, url) === 'external'
+        : (navigationKind(this.instance.service_id, url) === 'external' || externalWebURL(url)?.protocol === 'http:');
+      if (record && record.stage === 'waiting' && !record.authFlow && ['browsing', 'client_ready'].includes(record.openingPhase) && externalWebURL(url) && shouldEscape && routeStage(this.instance.service_id, url) !== 'auth') {
         event.preventDefault(); void this.openExternal(url).then(() => { if (this.live() && !record.child.isDestroyed()) record.child.close(); }); return;
       }
       if (record && routeStage(this.instance.service_id, url) === 'auth') { record.authFlow = true; record.authSeen = true; }

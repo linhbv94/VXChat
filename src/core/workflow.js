@@ -30,6 +30,12 @@ function navigationDecision(serviceID, value, { auxiliary = false, currentURL = 
   if (value === 'about:blank' && auxiliary) return 'allow';
   if (ownedBlobURL(value, currentURL) || (auxiliary && ownedBlobURL(value, initiator))) return 'allow';
   if (httpsURL(value) && navigationKind(serviceID, value) === 'auth') return 'allow';
+  const isCustom = typeof serviceID === 'string' && serviceID.startsWith('custom_');
+  if (isCustom) {
+    const kind = navigationKind(serviceID, value);
+    if (kind === 'service' || kind === 'auth') return 'allow';
+    return redirected ? 'recover' : 'external';
+  }
   const scoped = serviceScopeDecision(serviceID, value, { confirmed: setupConfirmed, purpose, authFlow: authFlow || (phase === 'authenticating' && routeStage(serviceID, currentURL) === 'auth') });
   if (scoped) return scoped;
   const url = httpsURL(value);

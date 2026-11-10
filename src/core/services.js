@@ -14,9 +14,49 @@ const SERVICES = Object.freeze({
 });
 const AUTH_HOSTS = Object.freeze(['accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com', 'auth.openai.com', 'auth0.openai.com', 'id.zalo.me']);
 
+const CUSTOM_SERVICES = new Map();
+
+function registerCustomService(record) {
+  if (!record || typeof record !== 'object') throw new Error('invalid_custom_service');
+  const { id, label, service_url, login_url, icon_key, created_at } = record;
+  const serviceU = externalWebURL(service_url);
+  if (!serviceU) throw new Error('invalid_custom_service');
+  const loginU = login_url ? externalWebURL(login_url) : serviceU;
+  if (!loginU) throw new Error('invalid_custom_service');
+  const hosts = Array.from(new Set([serviceU.hostname, loginU.hostname]));
+  const def = Object.freeze({
+    id,
+    label: (label || '').trim(),
+    url: serviceU.href,
+    login_url: loginU.href,
+    origin: serviceU.origin,
+    icon_key: icon_key || 'zchat',
+    hosts,
+    multiTab: false,
+    is_custom: true,
+    created_at: created_at || Date.now(),
+    partition: `persist:service-${id}`
+  });
+  CUSTOM_SERVICES.set(id, def);
+  return def;
+}
+
+function unregisterCustomService(id) {
+  CUSTOM_SERVICES.delete(id);
+}
+
+function clearCustomServices() {
+  CUSTOM_SERVICES.clear();
+}
+
+function customServicesList() {
+  return Array.from(CUSTOM_SERVICES.values());
+}
+
 function service(id) {
-  if (!Object.hasOwn(SERVICES, id)) throw new Error('service_not_enabled');
-  return SERVICES[id];
+  if (Object.hasOwn(SERVICES, id)) return SERVICES[id];
+  if (CUSTOM_SERVICES.has(id)) return CUSTOM_SERVICES.get(id);
+  throw new Error('service_not_enabled');
 }
 function defaultInstances() {
   return Object.keys(SERVICES).map(id => ({ id: `default_${id}`, service_id: id, label: service(id).label, partition: service(id).partition || `persist:service-${id}` }));
@@ -33,9 +73,18 @@ function externalWebURL(value) {
 
 function hostMatches(host, domain) { return host === domain || host.endsWith(`.${domain}`); }
 function navigationKind(serviceID, value) {
+  const definition = service(serviceID);
+  if (definition.is_custom) {
+    const u = externalWebURL(value);
+    if (!u) return 'blocked';
+    const serviceOrigin = new URL(definition.url).origin;
+    const loginOrigin = definition.login_url ? new URL(definition.login_url).origin : serviceOrigin;
+    if (u.origin === serviceOrigin || u.origin === loginOrigin) return 'service';
+    if (AUTH_HOSTS.includes(u.hostname)) return 'auth';
+    return 'external';
+  }
   const u = httpsURL(value);
   if (!u) return 'blocked';
-  const definition = service(serviceID);
   // Identity is a sibling of the client; classify before the zalo.me match.
   if (serviceID === 'zalo' && u.hostname === 'id.zalo.me' && !u.port) return 'auth';
   if (definition.hosts.some(h => hostMatches(u.hostname, h))) return 'service';
@@ -49,6 +98,14 @@ function browserUserAgent(original) {
 function popupDisposition(serviceID, value, { phase = 'browsing', currentURL = '', auxiliary = false } = {}) {
   if (value === 'about:blank') return 'owned';
   if (ownedBlobURL(value, currentURL)) return 'owned';
+  let isCustom = false;
+  try { isCustom = !!service(serviceID)?.is_custom; } catch {}
+  if (isCustom) {
+    const kind = navigationKind(serviceID, value);
+    if (kind === 'service' || kind === 'auth') return 'owned';
+    if (kind === 'external') return 'external';
+    return 'blocked';
+  }
   if (externalWebURL(value)?.protocol === 'http:') return ['browsing', 'client_ready'].includes(phase) ? 'external' : 'blocked';
   const kind = navigationKind(serviceID, value);
   if (kind === 'blocked') return kind;
@@ -95,4 +152,22 @@ function slackClientURL(value) {
   } catch { return null; }
 }
 
-module.exports = { externalWebURL, slackClientURL, SERVICES, AUTH_HOSTS, service, defaultInstances, httpsURL, hostMatches, navigationKind, browserUserAgent, popupDisposition, ownedBlobURL, normalizeSlackWorkspace };
+module.exports = {
+  externalWebURL,
+  slackClientURL,
+  SERVICES,
+  AUTH_HOSTS,
+  service,
+  defaultInstances,
+  httpsURL,
+  hostMatches,
+  navigationKind,
+  browserUserAgent,
+  popupDisposition,
+  ownedBlobURL,
+  normalizeSlackWorkspace,
+  registerCustomService,
+  unregisterCustomService,
+  clearCustomServices,
+  customServicesList
+};

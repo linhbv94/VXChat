@@ -2,6 +2,7 @@
 
 const { randomUUID } = require('node:crypto');
 const { readJSON, writeJSON, MAX_BYTES } = require('./atomic_json');
+const { service } = require('./services');
 
 const PROFILE_COLORS = Object.freeze({
   blue: '#3b82f6',
@@ -53,13 +54,17 @@ function migrateProfiles(data) {
   if (!data || typeof data !== 'object' || data.schema_version !== 1 || !Array.isArray(data.profiles)) {
     return data;
   }
+  const validProfiles = data.profiles.filter(p => {
+    if (!p || typeof p !== 'object') return false;
+    if (typeof p.scope_key === 'string' && p.scope_key.startsWith('custom_')) {
+      try { return !!service(p.scope_key); } catch { return false; }
+    }
+    return true;
+  });
   const defaults = defaultProfiles();
-  const existingIds = new Set(data.profiles.map(p => p.id));
+  const existingIds = new Set(validProfiles.map(p => p.id));
   const missing = defaults.filter(d => !existingIds.has(d.id));
-  if (missing.length > 0) {
-    return { ...data, profiles: [...data.profiles, ...missing] };
-  }
-  return data;
+  return { ...data, profiles: [...validProfiles, ...missing] };
 }
 
 function validateProfiles(data) {
@@ -100,7 +105,7 @@ class ProfileStore {
       const parsed = readJSON(this.filePath);
       const migrated = migrateProfiles(parsed);
       const validated = validateProfiles(migrated);
-      if (migrated !== parsed) this.saveData(validated);
+      if (JSON.stringify(migrated) !== JSON.stringify(parsed)) this.saveData(validated);
       return validated;
     } catch (err) {
       if (err.code === 'ENOENT') {
@@ -131,7 +136,8 @@ class ProfileStore {
   }
 
   create({ scope_key, label, color = 'blue' }) {
-    if (!['google', 'messenger', 'zalo', 'slack', 'chatgpt', 'telegram', 'whatsapp', 'discord'].includes(scope_key)) {
+    const isCustom = typeof scope_key === 'string' && /^custom_[a-f0-9]{32}$/.test(scope_key);
+    if (!isCustom && !['google', 'messenger', 'zalo', 'slack', 'chatgpt', 'telegram', 'whatsapp', 'discord'].includes(scope_key)) {
       throw new Error('invalid_scope_key');
     }
     const cleanLabel = (label || '').trim();
@@ -157,6 +163,40 @@ class ProfileStore {
     this.saveData(next);
     this.data = next;
     return { ...newProfile };
+  }
+
+  createDefault({ scope_key, label = 'Mặc định', color = 'blue' }) {
+    const cleanLabel = (label || '').trim() || 'Mặc định';
+    if (!validLabel(cleanLabel)) throw new Error('invalid_profile_label');
+    const cleanColor = validColor(color) ? color : 'blue';
+    const id = `default_${scope_key}`;
+    const partition = partitionForProfile(scope_key, id);
+    const newProfile = {
+      id,
+      scope_key,
+      label: cleanLabel,
+      color: cleanColor,
+      partition,
+      is_default: true,
+      created_at: Date.now()
+    };
+    const next = {
+      ...this.data,
+      profiles: [...this.data.profiles, newProfile]
+    };
+    this.saveData(next);
+    this.data = next;
+    return { ...newProfile };
+  }
+
+  deleteScope(scopeKey) {
+    const remaining = this.data.profiles.filter(p => p.scope_key !== scopeKey);
+    const next = {
+      ...this.data,
+      profiles: remaining
+    };
+    this.saveData(next);
+    this.data = next;
   }
 
   update(id, { label, color }) {

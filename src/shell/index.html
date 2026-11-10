@@ -45,7 +45,7 @@
       </button>
     </div>
     <span id="page-location" class="page-location" aria-label="Trang hiện tại"></span>
-    <button id="manage-services" class="nav-btn" type="button" aria-expanded="false" aria-controls="service-manager">⋯</button>
+    <button id="manage-services" class="nav-btn" type="button" aria-expanded="false" aria-controls="service-manager" hidden style="display:none!important;">⋯</button>
   </nav>
   <div id="tabs-overflow-panel" class="tabs-overflow-panel floating-dropdown" hidden></div>
   <div id="service-manager" hidden></div>
@@ -62,6 +62,39 @@
       <button type="button" id="profile-save-btn" class="profile-panel-btn profile-panel-btn-primary">Lưu</button>
       <button type="button" id="profile-cancel-btn" class="profile-panel-btn">Hủy</button>
       <button type="button" id="profile-close-btn" class="panel-close-btn" aria-label="Đóng">×</button>
+    </div>
+  </div>
+  <div id="custom-service-panel" class="chrome-panel" hidden>
+    <div class="custom-service-container">
+      <div class="custom-service-header">
+        <span id="custom-service-panel-title" class="profile-panel-title">Thêm dịch vụ thủ công</span>
+        <button type="button" id="custom-service-close-btn" class="panel-close-btn" aria-label="Đóng">×</button>
+      </div>
+      <form id="custom-service-form" class="custom-service-form" onsubmit="return false;">
+        <div class="custom-service-row">
+          <div class="custom-service-field">
+            <label for="custom-service-label-input" id="custom-service-label-desc">Tên dịch vụ</label>
+            <input type="text" id="custom-service-label-input" class="profile-panel-input" maxlength="32" placeholder="Ví dụ: Mattermost, Intranet..." required>
+          </div>
+          <div class="custom-service-field">
+            <label for="custom-service-url-input" id="custom-service-url-desc">Link dịch vụ (Service URL)</label>
+            <input type="text" id="custom-service-url-input" class="profile-panel-input" placeholder="Ví dụ: web.telegram.org hoặc https://..." required autocomplete="off">
+          </div>
+          <div class="custom-service-field">
+            <label for="custom-service-login-url-input" id="custom-service-login-desc">Link đăng nhập (Login URL - tùy chọn)</label>
+            <input type="text" id="custom-service-login-url-input" class="profile-panel-input" placeholder="Ví dụ: discord.com/login (mặc định như link dịch vụ)" autocomplete="off">
+          </div>
+        </div>
+        <div class="custom-service-icons-section">
+          <label id="custom-service-icon-desc">Chọn biểu tượng</label>
+          <div id="custom-service-icon-picker" class="icon-picker-grid"></div>
+        </div>
+        <div id="custom-service-error" class="custom-service-error" hidden></div>
+        <div class="custom-service-actions">
+          <button type="button" id="custom-service-cancel-btn" class="profile-panel-btn">Hủy</button>
+          <button type="submit" id="custom-service-save-btn" class="profile-panel-btn profile-panel-btn-primary">Thêm dịch vụ</button>
+        </div>
+      </form>
     </div>
   </div>
   </header>

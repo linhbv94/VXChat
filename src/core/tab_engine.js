@@ -1,13 +1,13 @@
 'use strict';
 
 const { randomUUID } = require('node:crypto');
-const { service, SERVICES } = require('./services');
+const { service, SERVICES, customServicesList, registerCustomService, unregisterCustomService } = require('./services');
 const { validateState } = require('./state_store');
 const { scopeForService } = require('./profile_store');
 
 class TabEngine {
-  constructor({ store, profileStore = null, createOwner, onChange = () => {} }) {
-    this.store = store; this.profileStore = profileStore; this.createOwner = createOwner; this.onChange = onChange;
+  constructor({ store, profileStore = null, permissionStore = null, createOwner, onChange = () => {} }) {
+    this.store = store; this.profileStore = profileStore; this.permissionStore = permissionStore; this.createOwner = createOwner; this.onChange = onChange;
     this.state = validateState(store.load()); this.owners = new Map(); this.stopped = false;
 
     // Attach default profile metadata to legacy instances if available
@@ -85,7 +85,10 @@ class TabEngine {
       })),
       profiles: this.profileStore ? this.profileStore.snapshot() : [],
       active_tab_id: this.state.active_tab_id,
-      services: Object.entries(SERVICES).map(([id, s]) => ({ id, label: s.label, multiTab: Boolean(s.multiTab) }))
+      services: [
+        ...Object.entries(SERVICES).map(([id, s]) => ({ id, label: s.label, multiTab: Boolean(s.multiTab), is_custom: false })),
+        ...customServicesList().map(s => ({ id: s.id, label: s.label, multiTab: false, is_custom: true, icon_key: s.icon_key, service_url: s.url, login_url: s.login_url }))
+      ]
     };
   }
   present() {
@@ -161,6 +164,7 @@ class TabEngine {
         });
       }
 
+      const previousState = this.state;
       try {
         const nextInstances = [...this.state.instances, ...newInstances];
         const nextTabs = this.state.tabs.map(t => {
@@ -183,6 +187,7 @@ class TabEngine {
         return { profile, instance: targetInstance, tab_id: tabId };
       } catch (error) {
         try { this.profileStore.delete(profile.id); } catch {}
+        try { this.commit(previousState); } catch {}
         throw error;
       }
     });
@@ -297,6 +302,95 @@ class TabEngine {
 
       this.present();
       return { ok: true, profile: updatedProfile };
+    });
+  }
+  createCustomService(customService) {
+    return this.enqueue(async () => {
+      const previousState = this.state;
+      let createdProfile = null;
+      let registered = false;
+      let def = null;
+      try {
+        def = registerCustomService(customService);
+        registered = true;
+        if (this.profileStore) {
+          createdProfile = this.profileStore.createDefault({ scope_key: customService.id, label: 'Mặc định', color: 'blue' });
+        }
+        const instance = {
+          id: `default_${customService.id}`,
+          service_id: customService.id,
+          label: def.label,
+          partition: `persist:service-${customService.id}`,
+          profile_id: `default_${customService.id}`,
+          profile_label: 'Mặc định',
+          profile_color: 'blue'
+        };
+        this.commit({
+          ...this.state,
+          instances: [...this.state.instances, instance]
+        });
+        const tabId = await this.addNow(customService.id, instance.id);
+        return { ok: true, service: def, tab_id: tabId };
+      } catch (err) {
+        if (this.profileStore && createdProfile) {
+          try { this.profileStore.deleteScope(customService.id); } catch {}
+        }
+        if (registered) {
+          unregisterCustomService(customService.id);
+        }
+        try { this.commit(previousState); } catch {}
+        throw err;
+      }
+    });
+  }
+  deleteCustomService(serviceId) {
+    if (!serviceId || typeof serviceId !== 'string' || !serviceId.startsWith('custom_')) {
+      return Promise.reject(new Error('cannot_delete_builtin_service'));
+    }
+    return this.enqueue(async () => {
+      if (!serviceId.startsWith('custom_')) {
+        throw new Error('cannot_delete_builtin_service');
+      }
+      const targetInstances = this.state.instances.filter(i => i.service_id === serviceId);
+      const instanceIds = new Set(targetInstances.map(i => i.id));
+      const closingTabs = this.state.tabs.filter(t => instanceIds.has(t.instance_id));
+      const closingTabIds = new Set(closingTabs.map(t => t.id));
+
+      const remainingInstances = this.state.instances.filter(i => !instanceIds.has(i.id));
+      const remainingTabs = this.state.tabs.filter(t => !closingTabIds.has(t.id));
+      const nextActive = remainingTabs.some(t => t.id === this.state.active_tab_id)
+        ? this.state.active_tab_id
+        : (remainingTabs[0]?.id || null);
+
+      // Clean up permissions and profiles first without swallowing errors
+      if (this.permissionStore) {
+        this.permissionStore.deleteScope(serviceId);
+      }
+
+      if (this.profileStore) {
+        this.profileStore.deleteScope(serviceId);
+      }
+
+      // Commit state first before tearing down live owners, ensuring atomic commit
+      this.commit({
+        ...this.state,
+        instances: remainingInstances,
+        tabs: remainingTabs,
+        active_tab_id: nextActive
+      });
+
+      // Tear down owners only after state write has succeeded
+      for (const tab of closingTabs) {
+        const owner = this.owners.get(tab.id);
+        if (owner) {
+          this.owners.delete(tab.id);
+          try { owner.dispose(); } catch {}
+        }
+      }
+
+      unregisterCustomService(serviceId);
+      this.present();
+      return { ok: true, service_id: serviceId };
     });
   }
   selectNow(id) {

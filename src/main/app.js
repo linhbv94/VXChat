@@ -4,6 +4,7 @@ const { app, BaseWindow, WebContentsView, session, dialog, Menu, ipcMain } = ele
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
+const { randomUUID } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 const { ServiceState, initialServiceState } = require('../core/service_state');
 const { WindowStateStore } = require('../core/window_state');
@@ -135,7 +136,7 @@ async function createWindow() {
   const completionTracker=createDownloadFeedbackTracker({onCue:()=>{ if (contentTop === 68) downloadPanel?.show(); }});completionTracker.update([]);
   downloads = new DownloadRegistry({ shell: electron.shell, directory: app.getPath('downloads'), getPreferences: () => preferences.snapshot(), changed: () => {const records=downloads.snapshot();ipc?.broadcast('downloads',records);completionTracker.update(records);} });
   const policy = new SessionPolicy({ session, dialog, window, resolveOwner: wc => owners.get(wc), permissionStore, downloads, systemPreferences: electron.systemPreferences, getLanguage, contentsFromFrame: frame => electron.webContents.fromFrame(frame), selectDisplaySource: createDisplayPicker({ desktopCapturer: electron.desktopCapturer, Menu, window, getLanguage }) });
-  engine = new TabEngine({ store, profileStore, onChange: changed, createOwner: args => new ContentOwner({ ...args, electron, window, sessionPolicy: policy, register: (wc, owner) => {owners.set(wc, owner);wc.on('before-input-event',dismissDownloadPanel);wc.on('input-event',dismissOnContentInput);wc.on('context-menu',hideDownloadPanel);wc.on('focus',hideDownloadPanel);}, unregister: wc => {owners.delete(wc);wc.removeListener('before-input-event',dismissDownloadPanel);wc.removeListener('input-event',dismissOnContentInput);wc.removeListener('context-menu',hideDownloadPanel);wc.removeListener('focus',hideDownloadPanel);}, changed, getLanguage, serviceState, getZoom: id => { const z = preferences.snapshot().zoom_levels; const inst = engine?.state?.instances?.find(i => i.id === id); return z[id] || (inst && z[`default_${inst.service_id}`]) || 1; }, getChromeHeight: () => contentTop, getStartURL: id => id === 'slack' ? preferences.snapshot().slack_workspace_url : null }) });
+  engine = new TabEngine({ store, profileStore, permissionStore, onChange: changed, createOwner: args => new ContentOwner({ ...args, electron, window, sessionPolicy: policy, register: (wc, owner) => {owners.set(wc, owner);wc.on('before-input-event',dismissDownloadPanel);wc.on('input-event',dismissOnContentInput);wc.on('context-menu',hideDownloadPanel);wc.on('focus',hideDownloadPanel);}, unregister: wc => {owners.delete(wc);wc.removeListener('before-input-event',dismissDownloadPanel);wc.removeListener('input-event',dismissOnContentInput);wc.removeListener('context-menu',hideDownloadPanel);wc.removeListener('focus',hideDownloadPanel);}, changed, getLanguage, serviceState, getZoom: id => { const z = preferences.snapshot().zoom_levels; const inst = engine?.state?.instances?.find(i => i.id === id); return z[id] || (inst && z[`default_${inst.service_id}`]) || 1; }, getChromeHeight: () => contentTop, getStartURL: id => id === 'slack' ? preferences.snapshot().slack_workspace_url : null }) });
   let boundsTimer = null;
   const scheduleBoundsSave = () => {
     if (boundsTimer) clearTimeout(boundsTimer);
@@ -154,6 +155,12 @@ async function createWindow() {
     let value; try { value = work(); } catch (error) { if (['invalid_preferences', 'invalid_workspace_url'].includes(error.message)) throw error; throw new Error('config_write_failed'); }
     for (const owner of engine.owners.values()) owner.applyZoom();
     ipc.broadcast('preferences', value); buildMenu(); return { preferences: value };
+  };
+  let customServiceOpQueue = Promise.resolve();
+  const withCustomServiceLock = fn => {
+    const next = customServiceOpQueue.then(fn, fn);
+    customServiceOpQueue = next.catch(() => {});
+    return next;
   };
   ipc = installIPC({ ipcMain, shellContents: shellView.webContents, shellURL: pathToFileURL(shellFile).href, engine, onSettings: () => { downloadPanel?.hide(); openUtility('settings'); }, dispatch: async (command, client) => {
     switch (command.action) {
@@ -196,6 +203,72 @@ async function createWindow() {
         contentTop = command.content_top || (command.height <= 110 ? command.height : 68);
         resize();
         return {};
+      }
+      case 'custom_service_create': {
+        return withCustomServiceLock(async () => {
+          const id = `custom_${randomUUID().replace(/-/g, '')}`;
+          const record = {
+            id,
+            label: command.label.trim(),
+            service_url: command.service_url.trim(),
+            login_url: (command.login_url && command.login_url.trim()) ? command.login_url.trim() : command.service_url.trim(),
+            icon_key: command.icon_key,
+            created_at: Date.now()
+          };
+          const created = await engine.createCustomService(record);
+          try {
+            const cur = preferences.snapshot();
+            const nextCustom = [...(cur.custom_services || []), record];
+            const nextOrder = [...cur.service_order, id];
+            savePreferences(() => preferences.update({
+              custom_services: nextCustom,
+              service_order: nextOrder
+            }));
+          } catch (prefErr) {
+            try { await engine.deleteCustomService(id); } catch {}
+            throw prefErr;
+          }
+          return { service: record, tab_id: created.tab_id };
+        });
+      }
+      case 'custom_service_delete': {
+        return withCustomServiceLock(async () => {
+          const cur = preferences.snapshot();
+          if (!(cur.custom_services || []).some(c => c.id === command.service_id)) {
+            throw new Error('custom_service_not_found');
+          }
+          const nextCustom = (cur.custom_services || []).filter(c => c.id !== command.service_id);
+          const nextOrder = cur.service_order.filter(id => id !== command.service_id);
+          const nextHidden = cur.hidden_services.filter(id => id !== command.service_id);
+          const nextZoom = { ...cur.zoom_levels };
+          for (const k of Object.keys(nextZoom)) {
+            if (k === command.service_id || k === `default_${command.service_id}` || k.includes(command.service_id)) {
+              delete nextZoom[k];
+            }
+          }
+          // Save preferences first; if writing preferences fails, no engine state/profiles are modified
+          savePreferences(() => preferences.update({
+            custom_services: nextCustom,
+            service_order: nextOrder,
+            hidden_services: nextHidden,
+            zoom_levels: nextZoom
+          }));
+          try {
+            await engine.deleteCustomService(command.service_id);
+            permissionStore.deleteScope(command.service_id);
+          } catch (delErr) {
+            try {
+              savePreferences(() => preferences.update({
+                custom_services: cur.custom_services,
+                service_order: cur.service_order,
+                hidden_services: cur.hidden_services,
+                zoom_levels: cur.zoom_levels
+              }));
+            } catch {}
+            throw delErr;
+          }
+          return { ok: true, service_id: command.service_id };
+        });
       }
       default: throw new Error('invalid_command');
     }

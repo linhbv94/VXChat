@@ -1,15 +1,18 @@
 'use strict';
-const { SERVICES } = require('../core/services');
+const { SERVICES, httpsURL, externalWebURL } = require('../core/services');
+const { PRESET_CUSTOM_ICONS } = require('../core/preferences_store');
 const SERVICE_IDS = Object.keys(SERVICES);
+const isCustomServiceId = id => typeof id === 'string' && /^custom_[a-f0-9]{32}$/.test(id);
 const SHAPES = {
   state: [], add: ['service_id'], select: ['tab_id'], close: ['tab_id'], reload: ['tab_id'], home: ['tab_id'], confirm_setup: ['tab_id'], setup_reset: ['tab_id'], app_menu: [], reorder: ['tab_ids'],
   focus_popup: ['tab_id', 'popup_id'], close_popup: ['tab_id', 'popup_id'], settings: [], downloads: [], download_panel: [], download_panel_hide: [],
   preferences_get: [], preferences_update: ['patch'], preferences_migrate: ['patch'], preferences_reset: [], metadata: [], repository_open: [], window_close: [],
   permission_list: [], permission_revoke: ['id'], download_list: [], download_cancel: ['id'], download_open: ['id'], download_reveal: ['id'], download_clear: [], layout: ['height'], slack_open: [], download_directory_choose: [], zoom_update: ['instance_id','factor'], update_state:[],update_check:[],update_install:[],update_dismiss:[],update_layout:['height'],
-  account_create: ['color', 'label', 'service_id'], account_update: ['color', 'label', 'profile_id'], account_delete: ['profile_id'], instance_open: ['instance_id']
+  account_create: ['color', 'label', 'service_id'], account_update: ['color', 'label', 'profile_id'], account_delete: ['profile_id'], instance_open: ['instance_id'],
+  custom_service_create: ['icon_key', 'label', 'login_url', 'service_url'], custom_service_delete: ['service_id']
 };
 const ROLES = {
-  shell: ['state', 'add', 'select', 'close', 'reload', 'home', 'confirm_setup', 'setup_reset', 'app_menu', 'reorder', 'focus_popup', 'close_popup', 'settings', 'downloads', 'download_panel', 'download_panel_hide', 'preferences_get', 'preferences_update', 'preferences_migrate', 'metadata', 'layout', 'account_create', 'account_update', 'account_delete', 'instance_open'],
+  shell: ['state', 'add', 'select', 'close', 'reload', 'home', 'confirm_setup', 'setup_reset', 'app_menu', 'reorder', 'focus_popup', 'close_popup', 'settings', 'downloads', 'download_panel', 'download_panel_hide', 'preferences_get', 'preferences_update', 'preferences_migrate', 'metadata', 'layout', 'account_create', 'account_update', 'account_delete', 'instance_open', 'custom_service_create', 'custom_service_delete'],
   settings: ['preferences_get', 'preferences_update', 'preferences_reset', 'metadata', 'repository_open', 'window_close', 'permission_list', 'permission_revoke', 'slack_open','download_directory_choose','zoom_update','update_state','update_check','update_install','update_dismiss', 'account_create', 'account_update', 'account_delete', 'instance_open'],
   updates:['preferences_get','update_state','update_check','update_install','update_dismiss','update_layout'],
   downloads: ['preferences_get', 'download_list', 'download_cancel', 'download_open', 'download_reveal', 'download_clear', 'window_close','downloads']
@@ -31,10 +34,13 @@ function validCommand(command) {
     if (key === 'height') return Number.isInteger(value) && value >= 68 && value <= 520;
     if (key === 'factor') return Number.isFinite(value) && value >= 0.5 && value <= 2;
     if (key === 'tab_ids') return Array.isArray(value) && value.length <= 100 && value.every(v => typeof v === 'string' && v.length > 0 && v.length <= 80);
-    if (key === 'patch') return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length <= 4 && Object.entries(value).every(([k, v]) => ['service_order','hidden_services'].includes(k) ? Array.isArray(v) && v.length <= SERVICE_IDS.length && new Set(v).size === v.length && v.every(id => SERVICE_IDS.includes(id)) && (k !== 'service_order' || v.length === SERVICE_IDS.length) : k === 'ask_download_location' ? typeof v === 'boolean' : ['theme', 'language', 'slack_workspace_url'].includes(k) && (v === null || typeof v === 'string' && v.length <= 2048));
+    if (key === 'patch') return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length <= 4 && Object.entries(value).every(([k, v]) => ['service_order','hidden_services'].includes(k) ? Array.isArray(v) && v.length <= 60 && new Set(v).size === v.length && v.every(id => SERVICE_IDS.includes(id) || isCustomServiceId(id)) && (k !== 'service_order' || v.length >= SERVICE_IDS.length) : k === 'ask_download_location' ? typeof v === 'boolean' : ['theme', 'language', 'slack_workspace_url'].includes(k) && (v === null || typeof v === 'string' && v.length <= 2048));
     if (key === 'color') return typeof value === 'string' && ['blue', 'emerald', 'amber', 'rose', 'violet', 'cyan', 'orange', 'pink'].includes(value);
-    if (key === 'label') return typeof value === 'string' && value.trim().length > 0 && value.length <= 32;
-    if (key === 'service_id') return typeof value === 'string' && SERVICE_IDS.includes(value);
+    if (key === 'label') return typeof value === 'string' && value.trim().length > 0 && value.length <= 32 && !/[\x00-\x1f\x7f]/.test(value);
+    if (key === 'service_id') return typeof value === 'string' && (SERVICE_IDS.includes(value) || isCustomServiceId(value));
+    if (key === 'icon_key') return typeof value === 'string' && PRESET_CUSTOM_ICONS.includes(value);
+    if (key === 'service_url') return typeof value === 'string' && value.length <= 8192 && !!externalWebURL(value);
+    if (key === 'login_url') return value === null || value === '' || (typeof value === 'string' && value.length <= 8192 && (!value.trim() || !!externalWebURL(value)));
     if (['instance_id', 'profile_id'].includes(key)) return typeof value === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(value);
     return typeof value === 'string' && value.length > 0 && value.length <= 80;
   });
@@ -42,7 +48,7 @@ function validCommand(command) {
 function trustedShell(event, contents, url) {
   try { return event.sender === contents && event.senderFrame === contents.mainFrame && event.senderFrame.url === url; } catch { return false; }
 }
-const SAFE_ERRORS = new Set(['invalid_preferences', 'invalid_workspace_url', 'config_write_failed', 'tab_not_found', 'popup_not_found', 'download_not_active', 'download_not_ready', 'download_missing', 'blocked_file_type', 'open_failed', 'permission_not_found', 'invalid_setup', 'account_not_found', 'cannot_delete_default_profile', 'profile_store_not_available', 'invalid_scope_key', 'invalid_profile_label', 'invalid_profile_color', 'unknown_instance', 'profile_recovery_required']);
+const SAFE_ERRORS = new Set(['invalid_preferences', 'invalid_workspace_url', 'config_write_failed', 'tab_not_found', 'popup_not_found', 'download_not_active', 'download_not_ready', 'download_missing', 'blocked_file_type', 'open_failed', 'permission_not_found', 'invalid_setup', 'account_not_found', 'cannot_delete_default_profile', 'profile_store_not_available', 'invalid_scope_key', 'invalid_profile_label', 'invalid_profile_color', 'unknown_instance', 'profile_recovery_required', 'invalid_custom_service', 'custom_service_not_found', 'cannot_delete_builtin_service']);
 function installIPC({ ipcMain, shellContents, shellURL, engine, onSettings = () => {}, dispatch = async () => ({}) }) {
   const clients = new Map([[shellContents, { role: 'shell', url: shellURL }]]);
   ipcMain.handle('vxchat:command', async (event, command) => {
