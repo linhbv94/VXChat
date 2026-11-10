@@ -36,7 +36,12 @@ const qaProfile = releaseQA?.profile || process.env.VXCHAT_QA_PROFILE;
 if (qaProfile) {
   if (!releaseQA && (app.isPackaged || !path.basename(qaProfile).startsWith('vxchat_shell_fixture_') || fs.realpathSync(path.dirname(qaProfile)) !== fs.realpathSync(os.tmpdir()))) throw new Error('invalid_qa_profile');
   app.setPath('userData', qaProfile);
-} else app.setPath('userData', path.join(app.getPath('appData'), 'VXChat', 'chromium_v2'));
+} else if (!app.isPackaged || process.execPath.includes('/dist/') || process.execPath.includes('/build/')) {
+  // Isolate development runs and local candidate builds so they never contaminate or upgrade production schema.
+  app.setPath('userData', path.join(app.getPath('appData'), 'VXChat', 'chromium_dev'));
+} else {
+  app.setPath('userData', path.join(app.getPath('appData'), 'VXChat', 'chromium_v2'));
+}
 let window = null; let engine = null; let preferences; let downloads; let ipc; let windowState = null;
 let quitting = false; let quitPending = false; let chromeHeight = 68; let contentTop = 68;
 let updates = null; let updateNotice = null;

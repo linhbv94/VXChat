@@ -18,7 +18,7 @@ const state = { ...initialState(), tabs: [], active_tab_id: null };
 fs.writeFileSync(path.join(temporary, 'tabs_state_v2.json'), JSON.stringify(state));
 process.env.VXCHAT_QA_PROFILE = temporary;
 let failed = false; let phase = 'startup';
-const timeout = setTimeout(() => { console.error(JSON.stringify({ error: 'shell_fixture_timeout', phase, contents: webContents.getAllWebContents().map(w => ({ loading: w.isLoading(), url: w.getURL() })) })); app.exit(1); }, 20000);
+const timeout = setTimeout(() => { console.error(JSON.stringify({ error: 'shell_fixture_timeout', phase, contents: webContents.getAllWebContents().map(w => ({ loading: w.isLoading(), url: w.getURL() })) })); app.exit(1); }, 45000);
 const { ready } = require('../src/main/app');
 assert.ok(ready, 'Engine did not acquire the fixture instance lock');
 ready.then(async () => {

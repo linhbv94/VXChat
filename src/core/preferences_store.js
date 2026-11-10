@@ -58,34 +58,91 @@ function migratePreferences(value) {
   }
   const services = Object.keys(SERVICES);
   if (value?.schema_version === 3) {
-    const custom = Array.isArray(value.custom_services) ? value.custom_services : [];
-    let order = Array.isArray(value.service_order) ? [...value.service_order] : [...services];
+    const custom = Array.isArray(value.custom_services)
+      ? value.custom_services.filter(c => { try { return validateCustomService(c); } catch { return false; } })
+      : [];
+    const customIds = new Set(custom.map(c => c.id));
+    let order = [];
+    if (Array.isArray(value.service_order)) {
+      for (const id of value.service_order) {
+        if ((services.includes(id) || customIds.has(id)) && !order.includes(id)) {
+          order.push(id);
+        }
+      }
+    }
     for (const id of services) {
       if (!order.includes(id)) order.push(id);
     }
     for (const c of custom) {
       if (!order.includes(c.id)) order.push(c.id);
     }
+    const hidden = Array.isArray(value.hidden_services)
+      ? value.hidden_services.filter(id => order.includes(id))
+      : [];
     return {
       ...DEFAULTS,
       ...value,
       schema_version: 4,
       service_order: order,
+      hidden_services: [...new Set(hidden)],
       custom_services: custom
     };
   }
-  if (value?.schema_version === 4) {
-    const custom = Array.isArray(value.custom_services) ? value.custom_services : [];
-    const customIds = custom.map(c => c.id);
-    let order = Array.isArray(value.service_order) ? [...value.service_order] : [...services, ...customIds];
-    let changed = false;
+  if (value?.schema_version >= 4) {
+    const custom = Array.isArray(value.custom_services)
+      ? value.custom_services.filter(c => { try { return validateCustomService(c); } catch { return false; } })
+      : [];
+    const customIds = new Set(custom.map(c => c.id));
+    let order = [];
+    if (Array.isArray(value.service_order)) {
+      for (const id of value.service_order) {
+        if ((services.includes(id) || customIds.has(id)) && !order.includes(id)) {
+          order.push(id);
+        }
+      }
+    }
     for (const id of services) {
-      if (!order.includes(id)) { order.push(id); changed = true; }
+      if (!order.includes(id)) order.push(id);
     }
-    for (const id of customIds) {
-      if (!order.includes(id)) { order.push(id); changed = true; }
+    for (const c of custom) {
+      if (!order.includes(c.id)) order.push(c.id);
     }
-    if (changed) return { ...value, service_order: order };
+    const hidden = Array.isArray(value.hidden_services)
+      ? value.hidden_services.filter(id => order.includes(id))
+      : [];
+    const uniqueHidden = [...new Set(hidden)];
+    const theme = THEMES.includes(value.theme) ? value.theme : DEFAULTS.theme;
+    const language = ['vi', 'en'].includes(value.language) ? value.language : DEFAULTS.language;
+    const askDownload = typeof value.ask_download_location === 'boolean' ? value.ask_download_location : DEFAULTS.ask_download_location;
+    const downloadDir = (typeof value.download_directory === 'string' && value.download_directory.length <= 4096 && path.isAbsolute(value.download_directory))
+      ? value.download_directory
+      : null;
+    let slackUrl = null;
+    if (typeof value.slack_workspace_url === 'string') {
+      try { slackUrl = normalizeSlackWorkspace(value.slack_workspace_url); } catch {}
+    }
+    const ids = new Set(defaultInstances().map(i => i.id));
+    const validZoomInstance = id => ids.has(id) || customIds.has(id) || /^default_custom_[a-f0-9]{32}$/.test(id) || /^instance_(?:messenger|zalo|slack|chatgpt|gmail|gemini|meet|telegram|whatsapp|discord|custom_[a-f0-9]{32})_profile_[a-zA-Z0-9_-]{1,64}$/.test(id);
+    const zoom = {};
+    if (value.zoom_levels && typeof value.zoom_levels === 'object' && !Array.isArray(value.zoom_levels)) {
+      for (const [k, v] of Object.entries(value.zoom_levels)) {
+        if (validZoomInstance(k) && typeof v === 'number' && Number.isFinite(v) && v >= 0.5 && v <= 2) {
+          zoom[k] = v;
+        }
+      }
+    }
+    return {
+      schema_version: 4,
+      theme,
+      language,
+      slack_workspace_url: slackUrl,
+      zoom_levels: zoom,
+      download_directory: downloadDir,
+      ask_download_location: askDownload,
+      service_order: order,
+      hidden_services: uniqueHidden,
+      custom_services: custom
+    };
   }
   return value;
 }

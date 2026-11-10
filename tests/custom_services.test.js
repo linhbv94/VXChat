@@ -559,3 +559,117 @@ test('custom services: profileStore.deleteScope failure propagates and protects 
   assert.ok(engine.snapshot().tabs.some(t => t.service_id === testId), 'Tab must remain in engine state');
   assert.ok(engine.snapshot().instances.some(i => i.service_id === testId), 'Instance must remain in engine state');
 });
+
+test('preferences and state forward compatibility: preserves user order, hidden setup, and multi-account profiles without throwing recovery dialog', t => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vxchat_forward_compat_'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  // 1. PreferencesStore forward compatibility
+  const prefFile = path.join(dir, 'prefs.json');
+  const futurePrefs = {
+    schema_version: 5, // Future schema version
+    theme: 'black',
+    language: 'en',
+    future_feature_flag: true,
+    extra_unknown_key: { nested: 123 },
+    service_order: [
+      'gmail', // User dragged Gmail to front
+      'slack',
+      'unknown_future_service_xyz', // Service from future or experimental version
+      'slack', // Duplicate to test deduplication
+      'chatgpt',
+      'messenger'
+      // deliberately omitted remaining built-in services to test additive healing
+    ],
+    hidden_services: [
+      'meet',
+      'unknown_future_service_xyz',
+      'meet' // Duplicate hidden item
+    ],
+    custom_services: []
+  };
+  fs.writeFileSync(prefFile, JSON.stringify(futurePrefs));
+
+  let store;
+  assert.doesNotThrow(() => {
+    store = new PreferencesStore(prefFile);
+  }, 'PreferencesStore must self-heal future/unknown schema without throwing preferences_recovery_required');
+
+  const snapshot = store.snapshot();
+  assert.equal(snapshot.theme, 'black', 'Theme must be preserved');
+  assert.equal(snapshot.language, 'en', 'Language must be preserved');
+  assert.equal(snapshot.service_order[0], 'gmail', 'User drag-and-drop first position (gmail) must be preserved');
+  assert.equal(snapshot.service_order[1], 'slack', 'User drag-and-drop second position (slack) must be preserved');
+  assert.equal(snapshot.service_order.includes('unknown_future_service_xyz'), false, 'Unknown service must be safely pruned');
+  assert.equal(new Set(snapshot.service_order).size, snapshot.service_order.length, 'Order must be deduplicated');
+  assert.equal(snapshot.service_order.length, 10, 'All 10 built-in services must be present');
+  assert.deepEqual(snapshot.hidden_services, ['meet'], 'Valid hidden services must be preserved without duplicates');
+
+  // 2. StateStore forward compatibility
+  const stateFile = path.join(dir, 'state.json');
+  const baseState = initialState();
+  const customGoogleProfileInstance = {
+    id: 'instance_gmail_profile_vx_user',
+    service_id: 'gmail',
+    label: 'Gmail (VX)',
+    partition: 'persist:service-google-profile_vx_user',
+    profile_id: 'profile_vx_user',
+    profile_label: 'VX',
+    profile_color: 'cyan'
+  };
+  const unknownServiceInstance = {
+    id: 'instance_future_service_001',
+    service_id: 'future_unsupported_service',
+    label: 'Future Chat',
+    partition: 'persist:service-future_unsupported_service'
+  };
+  const dirtyState = {
+    schema_version: 2,
+    instances: [
+      ...baseState.instances,
+      customGoogleProfileInstance,
+      unknownServiceInstance
+    ],
+    tabs: [
+      ...baseState.tabs,
+      {
+        id: 'tab_custom_google_1',
+        instance_id: customGoogleProfileInstance.id,
+        label: 'Gmail (VX)'
+      },
+      {
+        id: 'tab_future_1',
+        instance_id: unknownServiceInstance.id,
+        label: 'Future Chat'
+      }
+    ],
+    active_tab_id: 'tab_custom_google_1'
+  };
+  fs.writeFileSync(stateFile, JSON.stringify(dirtyState));
+
+  const stateStore = new StateStore(stateFile);
+  let loadedState;
+  assert.doesNotThrow(() => {
+    loadedState = stateStore.load();
+  }, 'StateStore must load without throwing state_recovery_required');
+
+  assert.ok(
+    loadedState.instances.some(i => i.id === customGoogleProfileInstance.id),
+    'Custom Google profile instance must be preserved'
+  );
+  assert.ok(
+    loadedState.tabs.some(t => t.id === 'tab_custom_google_1'),
+    'Custom Google tab must be preserved'
+  );
+  assert.equal(
+    loadedState.instances.some(i => i.id === unknownServiceInstance.id),
+    false,
+    'Unknown service instance must be filtered out gracefully'
+  );
+  assert.equal(
+    loadedState.tabs.some(t => t.instance_id === unknownServiceInstance.id),
+    false,
+    'Tab belonging to unknown service must be filtered out gracefully'
+  );
+  assert.equal(loadedState.active_tab_id, 'tab_custom_google_1');
+});

@@ -66,8 +66,12 @@ function migrateState(state) {
   if (state?.schema_version === 2 && Array.isArray(state.instances)) {
     const validInstances = state.instances.filter(i => {
       if (!i || typeof i !== 'object') return false;
-      if (typeof i.service_id === 'string' && i.service_id.startsWith('custom_')) {
-        try { return !!service(i.service_id); } catch { return false; }
+      if (typeof i.service_id !== 'string') return false;
+      try {
+        const def = service(i.service_id);
+        if (!def) return false;
+      } catch {
+        return false;
       }
       return true;
     });
